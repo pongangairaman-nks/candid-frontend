@@ -211,6 +211,34 @@ export const authApi = {
   },
 };
 
+export const realResumeApi = {
+  analyzeJobDescription: async (resumeId: number, jobDescription: string): Promise<{ analysis: { keywords: string[]; missing_skills: string[]; role_focus: string } }> => {
+    try {
+      const response = await apiClient.post<{ data: { analysis: { keywords: string[]; missing_skills: string[]; role_focus: string } } }>(
+        '/analyze',
+        { resumeId, jobDescription }
+      );
+      return { analysis: response.data.data.analysis };
+    } catch (error) {
+      console.error('Error analyzing job description:', error);
+      throw error;
+    }
+  },
+
+  generateTailoredResume: async (resumeId: number): Promise<{ latex: string }> => {
+    try {
+      const response = await apiClient.post<{ data: { latex: string } }>(
+        '/generate-resume',
+        { resumeId }
+      );
+      return { latex: response.data.data.latex };
+    } catch (error) {
+      console.error('Error generating tailored resume:', error);
+      throw error;
+    }
+  },
+};
+
 export const mockResumeApi = {
   optimizeResume: async (): Promise<OptimizeResumeResponse> => {
     await new Promise((resolve) => setTimeout(resolve, 2000));

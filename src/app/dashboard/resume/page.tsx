@@ -3,7 +3,7 @@
 import { Sparkles, Eye, Download } from 'lucide-react';
 import { useResumeStore } from '@/store/resumeStore';
 import { useState, useEffect } from 'react';
-import { mockResumeApi, resumeApi } from '@/services/api';
+import { mockResumeApi, resumeApi, realResumeApi } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
 
 const DEFAULT_PROMPT = `You are an expert resume optimizer. Analyze the provided resume and the job description. Modify ONLY the content of the resume to match the job description requirements while maintaining the LaTeX structure and formatting. Focus on:
@@ -61,7 +61,12 @@ export default function ResumePage() {
   }, [masterDocument, latexCode, setLatexCode]);
 
   const handleOptimize = async () => {
+    console.log('🚀 Resume Page handleOptimize called');
+    console.log('masterDocument:', masterDocument ? `${masterDocument.length} chars` : 'empty');
+    console.log('jobDescription:', jobDescription ? `${jobDescription.length} chars` : 'empty');
+    
     if (!masterDocument || !jobDescription) {
+      console.log('❌ Validation failed');
       setError('Please configure your master resume first');
       return;
     }
@@ -70,13 +75,41 @@ export default function ResumePage() {
     setError(null);
 
     try {
-      const response = await mockResumeApi.optimizeResume();
-      setLatexCode(response.optimizedLatex);
+      // First, ensure the master template is saved
+      console.log('📝 Step 1: Saving master template...');
+      const saveResult = await resumeApi.saveMasterTemplate(masterDocument);
+      console.log('✅ Master template saved:', saveResult);
+      
+      // Get the saved master template to ensure it's in the database
+      console.log('📝 Step 2: Fetching saved master template...');
+      const { latexCode: savedTemplate } = await resumeApi.getMasterTemplate();
+      console.log('✅ Master template fetched:', savedTemplate ? `${savedTemplate.length} chars` : 'empty');
+      
+      if (!savedTemplate) {
+        throw new Error('Failed to save master template');
+      }
+
+      // For now, use a default resumeId of 1 (in production, this would come from user context)
+      // First analyze the job description
+      console.log('📝 Step 3: Analyzing job description with Gemini...');
+      const analysisResult = await realResumeApi.analyzeJobDescription(1, jobDescription);
+      console.log('✅ Job description analyzed:', analysisResult);
+      
+      // Then generate the tailored resume
+      console.log('📝 Step 4: Generating tailored resume with Claude...');
+      const response = await realResumeApi.generateTailoredResume(1);
+      console.log('✅ Tailored resume generated:', response.latex ? `${response.latex.length} chars` : 'empty');
+      
+      setLatexCode(response.latex);
+      console.log('✅ LaTeX code set in store');
     } catch (err) {
-      setError('Failed to optimize resume. Please try again.');
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to optimize resume. Please try again.';
+      console.error('❌ Error in handleOptimize:', err);
+      console.error('Error message:', errorMessage);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
+      console.log('🏁 handleOptimize completed');
     }
   };
 
