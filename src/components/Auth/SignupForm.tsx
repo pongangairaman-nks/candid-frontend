@@ -26,7 +26,7 @@ export const SignupForm = ({ onSuccess, onSwitchToLogin }: SignupFormProps) => {
     }
 
     try {
-      await signup(email, password, name);
+      await signup({ email, password, firstName: name, lastName: '' });
       onSuccess();
     } catch {
       setError('Signup failed. Please try again.');

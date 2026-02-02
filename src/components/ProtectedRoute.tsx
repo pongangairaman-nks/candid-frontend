@@ -1,18 +1,17 @@
 'use client';
 
-import { NavigationSidebar, Header } from '@/components/Navigation';
-import { useAuthStore } from '@/store/authStore';
-import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/store/authStore';
 import { Loader } from 'lucide-react';
 
-export default function DashboardLayout({
-  children,
-}: {
+interface ProtectedRouteProps {
   children: React.ReactNode;
-}) {
-  const { isAuthenticated, initializeAuth } = useAuthStore();
+}
+
+export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const router = useRouter();
+  const { isAuthenticated, initializeAuth } = useAuthStore();
 
   useEffect(() => {
     initializeAuth();
@@ -38,15 +37,5 @@ export default function DashboardLayout({
     );
   }
 
-  return (
-    <div className="flex h-screen bg-white dark:bg-slate-900">
-      <NavigationSidebar />
-      <div className="flex-1 flex flex-col md:ml-64">
-        <Header />
-        <main className="flex-1 overflow-auto">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
-}
+  return <>{children}</>;
+};

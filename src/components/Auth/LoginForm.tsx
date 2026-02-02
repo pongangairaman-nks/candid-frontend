@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Mail, Lock, Loader } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -25,7 +26,7 @@ export const LoginForm = ({ onSuccess, onSwitchToSignup }: LoginFormProps) => {
     }
 
     try {
-      await login(email, password);
+      await login({ email, password });
       onSuccess();
     } catch (err) {
       setError('Login failed. Please try again.');
@@ -65,6 +66,12 @@ export const LoginForm = ({ onSuccess, onSwitchToSignup }: LoginFormProps) => {
           />
         </div>
       </div>
+
+      {/* <div className="text-right">
+        <Link href="/forgot-password" className="text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium">
+          Forgot password?
+        </Link>
+      </div> */}
 
       {error && (
         <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">

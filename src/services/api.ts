@@ -2,12 +2,38 @@ import axios from 'axios';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+// Create axios instance with default config
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// Add token to requests if available
+apiClient.interceptors.request.use((config) => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Handle token expiration
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 403) {
+      // Token expired or invalid
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export interface OptimizeResumeRequest {
   masterDocument: string;
@@ -56,6 +82,107 @@ export const resumeApi = {
       console.error('Error downloading resume:', error);
       throw error;
     }
+  },
+};
+
+export interface SignupRequest {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  user: {
+    id: number;
+    email: string;
+    firstName: string;
+    lastName: string;
+    isVerified: boolean;
+  };
+  token: string;
+}
+
+export const authApi = {
+  signup: async (data: SignupRequest): Promise<AuthResponse> => {
+    try {
+      const response = await apiClient.post<{ data: AuthResponse }>('/auth/signup', data);
+      const { token, user } = response.data.data;
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      return response.data.data;
+    } catch (error) {
+      console.error('Signup error:', error);
+      throw error;
+    }
+  },
+
+  login: async (data: LoginRequest): Promise<AuthResponse> => {
+    try {
+      const response = await apiClient.post<{ data: AuthResponse }>('/auth/login', data);
+      const { token, user } = response.data.data;
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      return response.data.data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  },
+
+  forgotPassword: async (email: string): Promise<{ message: string }> => {
+    try {
+      const response = await apiClient.post<{ message: string }>('/auth/forgot-password', { email });
+      return response.data;
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      throw error;
+    }
+  },
+
+  resetPassword: async (resetToken: string, newPassword: string): Promise<{ message: string }> => {
+    try {
+      const response = await apiClient.post<{ message: string }>('/auth/reset-password', {
+        resetToken,
+        newPassword,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Reset password error:', error);
+      throw error;
+    }
+  },
+
+  verifyEmail: async (verificationToken: string): Promise<{ message: string }> => {
+    try {
+      const response = await apiClient.post<{ message: string }>('/auth/verify-email', {
+        verificationToken,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Verify email error:', error);
+      throw error;
+    }
+  },
+
+  getCurrentUser: async () => {
+    try {
+      const response = await apiClient.get<{ data: { user: AuthResponse['user'] } }>('/auth/me');
+      return response.data.data.user;
+    } catch (error) {
+      console.error('Get current user error:', error);
+      throw error;
+    }
+  },
+
+  logout: () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
   },
 };
 
@@ -108,7 +235,7 @@ Bachelor's Degree -- Chennai, India
 
   generatePdf: async (latexCode: string): Promise<{ pdfUrl: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/compile-latex`, {
+      const response = await fetch(`${API_BASE_URL}/compile-latex`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
