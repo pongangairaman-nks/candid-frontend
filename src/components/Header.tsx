@@ -1,6 +1,7 @@
 'use client';
 
 import { FileText, Zap } from 'lucide-react';
+import { LLMConfig } from './LLMConfig';
 
 export const Header = () => {
   return (
@@ -15,9 +16,12 @@ export const Header = () => {
         </div>
       </div>
       
-      <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-        <FileText size={14} />
-        <span>LaTeX-based Resume Optimization</span>
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+          <FileText size={14} />
+          <span>LaTeX-based Resume Optimization</span>
+        </div>
+        <LLMConfig />
       </div>
     </div>
   );

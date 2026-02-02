@@ -1,6 +1,7 @@
 'use client';
 
 import { Sparkles, Eye, Download } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { useResumeStore } from '@/store/resumeStore';
 import { useAuthStore } from '@/store/authStore';
 import { useState, useEffect } from 'react';
@@ -116,12 +117,10 @@ export default function ResumePage() {
       console.log('✅ LaTeX code set in store');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to optimize resume. Please try again.';
-      console.error('❌ Error in handleOptimize:', err);
-      console.error('Error message:', errorMessage);
       setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
-      console.log('🏁 handleOptimize completed');
     }
   };
 

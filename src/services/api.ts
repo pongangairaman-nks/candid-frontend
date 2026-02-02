@@ -220,8 +220,10 @@ export const realResumeApi = {
       );
       return { analysis: response.data.data.analysis };
     } catch (error) {
-      console.error('Error analyzing job description:', error);
-      throw error;
+      const axiosError = error as any;
+      const errorMessage = axiosError?.response?.data?.message || axiosError?.response?.data?.error || axiosError?.message || 'Failed to analyze job description';
+      const err = new Error(errorMessage);
+      throw err;
     }
   },
 
@@ -233,8 +235,10 @@ export const realResumeApi = {
       );
       return { latex: response.data.data.latex };
     } catch (error) {
-      console.error('Error generating tailored resume:', error);
-      throw error;
+      const axiosError = error as any;
+      const errorMessage = axiosError?.response?.data?.message || axiosError?.response?.data?.error || axiosError?.message || 'Failed to generate tailored resume';
+      const err = new Error(errorMessage);
+      throw err;
     }
   },
 };
