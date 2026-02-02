@@ -2,6 +2,7 @@
 
 import { Sparkles, Eye, Download } from 'lucide-react';
 import { useResumeStore } from '@/store/resumeStore';
+import { useAuthStore } from '@/store/authStore';
 import { useState, useEffect } from 'react';
 import { mockResumeApi, resumeApi, realResumeApi } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
@@ -26,6 +27,8 @@ export default function ResumePage() {
     setIsLoading,
     setError,
   } = useResumeStore();
+
+  const { user } = useAuthStore();
 
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [showPreview, setShowPreview] = useState(false);
@@ -71,6 +74,12 @@ export default function ResumePage() {
       return;
     }
 
+    if (!user || !user.id) {
+      console.log('❌ User not authenticated');
+      setError('User not authenticated. Please log in.');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -89,15 +98,18 @@ export default function ResumePage() {
         throw new Error('Failed to save master template');
       }
 
-      // For now, use a default resumeId of 1 (in production, this would come from user context)
+      // Use the authenticated user's ID
+      const resumeId = user.id;
+      console.log(`📝 Using resumeId: ${resumeId} for user: ${user.email}`);
+      
       // First analyze the job description
       console.log('📝 Step 3: Analyzing job description with Gemini...');
-      const analysisResult = await realResumeApi.analyzeJobDescription(1, jobDescription);
+      const analysisResult = await realResumeApi.analyzeJobDescription(resumeId, jobDescription);
       console.log('✅ Job description analyzed:', analysisResult);
       
       // Then generate the tailored resume
       console.log('📝 Step 4: Generating tailored resume with Claude...');
-      const response = await realResumeApi.generateTailoredResume(1);
+      const response = await realResumeApi.generateTailoredResume(resumeId);
       console.log('✅ Tailored resume generated:', response.latex ? `${response.latex.length} chars` : 'empty');
       
       setLatexCode(response.latex);

@@ -95,7 +95,7 @@ export const LoginForm = ({ onSuccess, onSwitchToSignup }: LoginFormProps) => {
       </button>
 
       <p className="text-center text-sm text-slate-600 dark:text-slate-400">
-        Don't have an account?{' '}
+        Don&apos;t have an account?{' '}
         <button
           type="button"
           onClick={onSwitchToSignup}
