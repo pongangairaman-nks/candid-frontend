@@ -3,7 +3,7 @@
 import { Sparkles, Eye, Download } from 'lucide-react';
 import { useResumeStore } from '@/store/resumeStore';
 import { useState, useEffect } from 'react';
-import { mockResumeApi } from '@/services/api';
+import { mockResumeApi, resumeApi } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
 
 const DEFAULT_PROMPT = `You are an expert resume optimizer. Analyze the provided resume and the job description. Modify ONLY the content of the resume to match the job description requirements while maintaining the LaTeX structure and formatting. Focus on:
@@ -20,6 +20,7 @@ export default function ResumePage() {
     jobDescription,
     latexCode,
     isLoading,
+    setMasterDocument,
     setJobDescription,
     setLatexCode,
     setIsLoading,
@@ -30,6 +31,27 @@ export default function ResumePage() {
   const [showPreview, setShowPreview] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState('');
+
+  // Fetch master template on page load if not already available
+  useEffect(() => {
+    const fetchMasterTemplate = async () => {
+      // Only fetch if masterDocument is not already in store
+      if (!masterDocument) {
+        try {
+          const { latexCode: fetchedLatexCode } = await resumeApi.getMasterTemplate();
+          if (fetchedLatexCode) {
+            // Set the master document in store
+            setMasterDocument(fetchedLatexCode);
+          }
+        } catch (err) {
+          // Template doesn't exist yet, which is fine
+          console.log('No master template found');
+        }
+      }
+    };
+
+    fetchMasterTemplate();
+  }, [masterDocument, setMasterDocument]);
 
   // Initialize latexCode with masterDocument on mount
   useEffect(() => {

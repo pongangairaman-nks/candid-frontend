@@ -1,21 +1,53 @@
 'use client';
 
-import { FileText, AlertCircle, Save } from 'lucide-react';
+import { FileText, AlertCircle, Save, Loader } from 'lucide-react';
 import { useResumeStore } from '@/store/resumeStore';
-import { useState } from 'react';
+import { resumeApi } from '@/services/api';
+import { useState, useEffect } from 'react';
 
 export default function ConfigurationPage() {
   const { masterDocument, setMasterDocument, error, setError } = useResumeStore();
   const [isSaved, setIsSaved] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingTemplate, setIsLoadingTemplate] = useState(true);
 
-  const handleSave = () => {
+  // Fetch master template on page load
+  useEffect(() => {
+    const fetchMasterTemplate = async () => {
+      try {
+        const { latexCode } = await resumeApi.getMasterTemplate();
+        setMasterDocument(latexCode);
+        setError(null);
+      } catch (err) {
+        // Template doesn't exist yet, which is fine
+        console.log('No master template found');
+      } finally {
+        setIsLoadingTemplate(false);
+      }
+    };
+
+    fetchMasterTemplate();
+  }, [setMasterDocument, setError]);
+
+  const handleSave = async () => {
     if (!masterDocument.trim()) {
       setError('Please paste LaTeX code before saving');
       return;
     }
-    setIsSaved(true);
+
+    setIsLoading(true);
     setError(null);
-    setTimeout(() => setIsSaved(false), 2000);
+
+    try {
+      await resumeApi.saveMasterTemplate(masterDocument);
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save master template';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -73,11 +105,20 @@ export default function ConfigurationPage() {
         <div className="mt-6 flex gap-3">
           <button
             onClick={handleSave}
-            disabled={!masterDocument.trim()}
+            disabled={!masterDocument.trim() || isLoading}
             className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
           >
-            <Save size={18} />
-            Save Master Template
+            {isLoading ? (
+              <>
+                <Loader size={18} className="animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save size={18} />
+                Save Master Template
+              </>
+            )}
           </button>
           {masterDocument && (
             <button

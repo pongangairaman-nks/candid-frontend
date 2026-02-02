@@ -46,6 +46,31 @@ export interface OptimizeResumeResponse {
 }
 
 export const resumeApi = {
+  saveMasterTemplate: async (latexCode: string): Promise<{ message: string }> => {
+    try {
+      const response = await apiClient.post<{ message: string }>(
+        '/resume/save-master-template',
+        { latexCode }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error saving master template:', error);
+      throw error;
+    }
+  },
+
+  getMasterTemplate: async (): Promise<{ latexCode: string }> => {
+    try {
+      const response = await apiClient.get<{ data: { latexCode: string } }>(
+        '/resume/master-template'
+      );
+      return { latexCode: response.data.data.latexCode };
+    } catch (error) {
+      console.error('Error fetching master template:', error);
+      throw error;
+    }
+  },
+
   optimizeResume: async (data: OptimizeResumeRequest): Promise<OptimizeResumeResponse> => {
     try {
       const response = await apiClient.post<OptimizeResumeResponse>(
