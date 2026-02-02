@@ -45,6 +45,53 @@ export interface OptimizeResumeResponse {
   pdfUrl?: string;
 }
 
+export interface ATSBreakdown {
+  primary_keywords: {
+    matched: number;
+    total: number;
+    percentage: number;
+    weight: number;
+  };
+  secondary_keywords: {
+    matched: number;
+    total: number;
+    percentage: number;
+    weight: number;
+  };
+  matching_skills: {
+    matched: number;
+    missing: number;
+    total: number;
+    percentage: number;
+    weight: number;
+  };
+  format_quality: {
+    score: number;
+    weight: number;
+  };
+  seniority_alignment: {
+    score: number;
+    weight: number;
+  };
+}
+
+export interface ATSSuggestion {
+  priority: 'high' | 'medium' | 'low';
+  category: string;
+  message: string;
+  impact: string;
+}
+
+export interface ATSScoreResponse {
+  score: number;
+  status: string;
+  message: string;
+  breakdown: ATSBreakdown;
+  suggestions: ATSSuggestion[];
+  tips: string[];
+  gaps: string[];
+}
+
 export const resumeApi = {
   saveMasterTemplate: async (latexCode: string): Promise<{ message: string }> => {
     try {
@@ -105,6 +152,24 @@ export const resumeApi = {
       return response.data;
     } catch (error) {
       console.error('Error downloading resume:', error);
+      throw error;
+    }
+  },
+
+  checkATSScore: async (resumeText: string, jobDescription?: string): Promise<ATSScoreResponse> => {
+    try {
+      const response = await apiClient.post<{ status: string; data: ATSScoreResponse }>('/ats/analysis', {
+        resumeText,
+        jobDescription,
+      });
+
+      if (!response.data || response.data.status !== 'success') {
+        throw new Error(response.data?.status || 'Failed to calculate ATS score');
+      }
+
+      return response.data.data;
+    } catch (error) {
+      console.error('ATS analysis error:', error);
       throw error;
     }
   },

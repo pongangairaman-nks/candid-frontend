@@ -48,6 +48,7 @@ export const LLMConfigSection = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Load config from backend on mount
   useEffect(() => {
     const fetchConfig = async () => {
       try {
@@ -67,11 +68,14 @@ export const LLMConfigSection = () => {
 
         if (response.ok) {
           const config = await response.json();
+          console.log('✅ Fetched LLM config from backend');
+          
           if (config.analyzer_provider) {
             setAnalyzerProvider(config.analyzer_provider);
             setAnalyzerModel(config.analyzer_model);
             if (config.analyzer_api_key) {
               setAnalyzerApiKey(config.analyzer_api_key);
+              console.log('✅ Analyzer API key loaded');
             }
           }
           if (config.generator_provider) {
@@ -79,11 +83,14 @@ export const LLMConfigSection = () => {
             setGeneratorModel(config.generator_model);
             if (config.generator_api_key) {
               setGeneratorApiKey(config.generator_api_key);
+              console.log('✅ Generator API key loaded');
             }
           }
+        } else {
+          console.warn('⚠️ Failed to fetch config, status:', response.status);
         }
       } catch (error) {
-        console.error('Failed to fetch config:', error);
+        console.error('❌ Failed to fetch config:', error);
       } finally {
         setIsFetching(false);
       }

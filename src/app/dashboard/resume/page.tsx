@@ -1,12 +1,13 @@
 'use client';
 
-import { Sparkles, Eye, Download } from 'lucide-react';
+import { Sparkles, Eye, Download, TrendingUp } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useResumeStore } from '@/store/resumeStore';
 import { useAuthStore } from '@/store/authStore';
 import { useState, useEffect } from 'react';
-import { mockResumeApi, resumeApi, realResumeApi } from '@/services/api';
+import { mockResumeApi, resumeApi, realResumeApi, type ATSScoreResponse } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
+import { ATSScoreModal } from '@/components/ATSScoreModal';
 import { DEFAULT_RESUME_PROMPT } from '@/constants/prompts';
 
 
@@ -29,6 +30,9 @@ export default function ResumePage() {
   const [showPreview, setShowPreview] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState('');
+  const [showATSModal, setShowATSModal] = useState(false);
+  const [atsLoading, setAtsLoading] = useState(false);
+  const [atsData, setAtsData] = useState<ATSScoreResponse | null>(null);
 
   // Fetch master template on page load if not already available
   useEffect(() => {
@@ -161,6 +165,28 @@ export default function ResumePage() {
     }
   };
 
+  const handleCheckATSScore = async () => {
+    if (!latexCode || !jobDescription) {
+      setError('Please generate a resume and provide a job description first');
+      return;
+    }
+
+    setAtsLoading(true);
+    try {
+      const response = await resumeApi.checkATSScore(latexCode, jobDescription);
+      setAtsData(response);
+      setShowATSModal(true);
+      toast.success('ATS analysis complete!');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to check ATS score';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      console.error(err);
+    } finally {
+      setAtsLoading(false);
+    }
+  };
+
   return (
     <div className="h-full flex">
       {/* Left Section - Input */}
@@ -248,6 +274,14 @@ export default function ResumePage() {
               <Download size={18} />
               Download
             </button>
+            <button
+              onClick={handleCheckATSScore}
+              disabled={!latexCode || !jobDescription || atsLoading || isLoading}
+              className="flex-2 flex items-center justify-center gap-2 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
+            >
+              <TrendingUp size={18} />
+              {atsLoading ? 'Checking ATS Score...' : 'Check ATS Score'}
+            </button>
           </div>
         </div>
       </div>
@@ -259,6 +293,14 @@ export default function ResumePage() {
           onClose={() => setShowPreview(false)}
         />
       )}
+
+      {/* ATS Score Modal */}
+      <ATSScoreModal
+        isOpen={showATSModal}
+        onClose={() => setShowATSModal(false)}
+        atsData={atsData}
+        isLoading={atsLoading}
+      />
     </div>
   );
 }
