@@ -68,10 +68,16 @@ export const LLMConfigSection = () => {
           if (config.analyzer_provider) {
             setAnalyzerProvider(config.analyzer_provider);
             setAnalyzerModel(config.analyzer_model);
+            if (config.analyzer_api_key) {
+              setAnalyzerApiKey(config.analyzer_api_key);
+            }
           }
           if (config.generator_provider) {
             setGeneratorProvider(config.generator_provider);
             setGeneratorModel(config.generator_model);
+            if (config.generator_api_key) {
+              setGeneratorApiKey(config.generator_api_key);
+            }
           }
         }
       } catch (error) {
@@ -113,9 +119,17 @@ export const LLMConfigSection = () => {
       });
 
       if (response.ok) {
+        const data = await response.json();
         setSuccessMessage('Configuration saved successfully!');
-        setAnalyzerApiKey('');
-        setGeneratorApiKey('');
+        // Update state with returned config data including API keys
+        if (data.config) {
+          setAnalyzerProvider(data.config.analyzer_provider);
+          setAnalyzerModel(data.config.analyzer_model);
+          setAnalyzerApiKey(data.config.analyzer_api_key || '');
+          setGeneratorProvider(data.config.generator_provider);
+          setGeneratorModel(data.config.generator_model);
+          setGeneratorApiKey(data.config.generator_api_key || '');
+        }
         setTimeout(() => setSuccessMessage(''), 3000);
       } else {
         const error = await response.json();
