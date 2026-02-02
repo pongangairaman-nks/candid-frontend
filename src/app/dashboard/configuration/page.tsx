@@ -1,20 +1,23 @@
 'use client';
 
-import { FileText, AlertCircle, Save, Loader } from 'lucide-react';
+import { FileText, AlertCircle, Save, Loader, CheckCircle } from 'lucide-react';
 import { useResumeStore } from '@/store/resumeStore';
 import { resumeApi } from '@/services/api';
 import { LLMConfigSection } from '@/components/LLMConfigSection';
 import { useState, useEffect } from 'react';
 
-type TabType = 'llm' | 'template';
+type TabType = 'llm' | 'template' | 'content';
 
 export default function ConfigurationPage() {
   const { masterDocument, setMasterDocument, error, setError } = useResumeStore();
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('llm');
+  const [masterContent, setMasterContent] = useState('');
+  const [contentSaved, setContentSaved] = useState(false);
+  const [contentLoading, setContentLoading] = useState(false);
 
-  // Fetch master template on page load
+  // Fetch master template and master content on page load
   useEffect(() => {
     const fetchMasterTemplate = async () => {
       try {
@@ -29,6 +32,33 @@ export default function ConfigurationPage() {
 
     fetchMasterTemplate();
   }, [setMasterDocument, setError]);
+
+  // Fetch master content on page load
+  useEffect(() => {
+    const fetchMasterContent = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+        const response = await fetch(`${API_BASE_URL}/llm/config`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const config = await response.json();
+          if (config.master_content) {
+            setMasterContent(config.master_content);
+          }
+        }
+      } catch {
+        console.log('Failed to fetch master content');
+      }
+    };
+
+    fetchMasterContent();
+  }, []);
 
   const handleSave = async () => {
     if (!masterDocument.trim()) {
@@ -48,6 +78,45 @@ export default function ConfigurationPage() {
       setError(errorMessage);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSaveMasterContent = async () => {
+    if (!masterContent.trim()) {
+      setError('Please paste content before saving');
+      return;
+    }
+
+    setContentLoading(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+      const response = await fetch(`${API_BASE_URL}/llm/config`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          master_content: masterContent,
+        }),
+      });
+
+      if (response.ok) {
+        setContentSaved(true);
+        setTimeout(() => setContentSaved(false), 3000);
+      } else {
+        const error = await response.json();
+        setError(error.error || 'Failed to save master content');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save master content';
+      setError(errorMessage);
+    } finally {
+      setContentLoading(false);
     }
   };
 
@@ -83,6 +152,16 @@ export default function ConfigurationPage() {
             }`}
           >
             Master Template
+          </button>
+          <button
+            onClick={() => setActiveTab('content')}
+            className={`py-4 px-2 font-medium text-sm border-b-2 transition-colors ${
+              activeTab === 'content'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-300'
+            }`}
+          >
+            Master Content
           </button>
         </div>
       </div>
@@ -139,6 +218,13 @@ export default function ConfigurationPage() {
             </div>
           )}
 
+          {/* Info Box */}
+          <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              ℹ️ Paste your complete LaTeX resume template here and save it. This will be prefilled in the Resume Creation section and can be edited after optimization.
+            </p>
+          </div>
+          
           {/* Save Button */}
           <div className="mt-6 flex gap-3">
             <button
@@ -170,13 +256,92 @@ export default function ConfigurationPage() {
               </button>
             )}
           </div>
-
-          {/* Info Box */}
-          <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <p className="text-sm text-blue-700 dark:text-blue-300">
-              ℹ️ Paste your complete LaTeX resume template here and save it. This will be prefilled in the Resume Creation section and can be edited after optimization.
-            </p>
           </div>
+        )}
+
+        {/* Master Content Tab */}
+        {activeTab === 'content' && (
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Master Content</h2>
+            <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+              {/* Label */}
+              <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  YOUR SKILLS & EXPERIENCE REPOSITORY
+                </label>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {masterContent.length > 0 && `${masterContent.length} / 50000 characters`}
+                </span>
+              </div>
+
+              {/* Textarea */}
+              <textarea
+                value={masterContent}
+                onChange={(e) => {
+                  if (e.target.value.length <= 50000) {
+                    setMasterContent(e.target.value);
+                    setError(null);
+                  }
+                }}
+                placeholder="Paste your comprehensive skills, experiences, projects, certifications, and achievements here. Include details not in your current resume. (Max 50KB)"
+                className="h-96 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+              />
+            </div>
+
+            {/* Info Box */}
+            <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                💡 <strong>Tip:</strong> Include skills you haven&apos;t used recently, side projects, certifications, and detailed achievements with metrics. This helps the LLM find better matches for job descriptions.
+              </p>
+            </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex gap-3">
+                <AlertCircle size={18} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {contentSaved && (
+              <div className="mt-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex gap-3">
+                <CheckCircle size={18} className="text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-green-700 dark:text-green-300">Master content saved successfully!</p>
+              </div>
+            )}
+
+            {/* Save Button */}
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={handleSaveMasterContent}
+                disabled={!masterContent.trim() || contentLoading}
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
+              >
+                {contentLoading ? (
+                  <>
+                    <Loader size={18} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} />
+                    Save Master Content
+                  </>
+                )}
+              </button>
+              {masterContent && (
+                <button
+                  onClick={() => {
+                    setMasterContent('');
+                    setError(null);
+                  }}
+                  className="px-6 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 font-medium transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

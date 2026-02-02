@@ -7,14 +7,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useState, useEffect } from 'react';
 import { mockResumeApi, resumeApi, realResumeApi } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
+import { DEFAULT_RESUME_PROMPT } from '@/constants/prompts';
 
-const DEFAULT_PROMPT = `You are an expert resume optimizer. Analyze the provided resume and the job description. Modify ONLY the content of the resume to match the job description requirements while maintaining the LaTeX structure and formatting. Focus on:
-1. Highlighting relevant skills and experiences
-2. Using keywords from the job description
-3. Quantifying achievements where possible
-4. Making it ATS-friendly
-
-Do NOT change the LaTeX template structure, only modify the text content between the LaTeX commands.`;
 
 export default function ResumePage() {
   const {
@@ -31,7 +25,7 @@ export default function ResumePage() {
 
   const { user } = useAuthStore();
 
-  const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
+  const [prompt, setPrompt] = useState(DEFAULT_RESUME_PROMPT);
   const [showPreview, setShowPreview] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState('');
