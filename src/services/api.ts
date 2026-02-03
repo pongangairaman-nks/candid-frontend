@@ -138,12 +138,8 @@ export const resumeApi = {
       );
       return { latexCode: response.data.data.latexCode };
     } catch (error: unknown) {
-      const axiosError = error as { response?: { status: number } };
-      if (axiosError.response?.status === 404) {
-        return { latexCode: '' };
-      }
       console.error('Error fetching master cover letter template:', error);
-      throw error;
+      return { latexCode: '' };
     }
   },
 
