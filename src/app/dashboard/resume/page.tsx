@@ -10,6 +10,16 @@ import { PreviewModal } from '@/components/PreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
 import { DEFAULT_RESUME_PROMPT } from '@/constants/prompts';
 
+type TabType = 'resume' | 'coverLetter';
+
+const DEFAULT_COVER_LETTER_PROMPT = `You are an expert cover letter writer. Based on the job description and the candidate's master content, write a compelling cover letter that:
+1. Addresses the specific requirements mentioned in the job description
+2. Highlights relevant skills and experiences from the master content
+3. Shows genuine interest in the position and company
+4. Uses a professional yet personable tone
+5. Is concise and impactful (typically 3-4 paragraphs)
+
+Format the output as a LaTeX cover letter template.`;
 
 export default function ResumePage() {
   const {
@@ -26,7 +36,11 @@ export default function ResumePage() {
 
   const { user } = useAuthStore();
 
+  const [activeTab, setActiveTab] = useState<TabType>('resume');
   const [prompt, setPrompt] = useState(DEFAULT_RESUME_PROMPT);
+  const [resumeLatexCode, setResumeLatexCode] = useState('');
+  const [coverLetterLatexCode, setCoverLetterLatexCode] = useState('');
+  const [masterCoverLetterTemplate, setMasterCoverLetterTemplate] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState('');
@@ -34,47 +48,55 @@ export default function ResumePage() {
   const [atsLoading, setAtsLoading] = useState(false);
   const [atsData, setAtsData] = useState<ATSScoreResponse | null>(null);
 
-  // Fetch master template on page load if not already available
+  // Fetch master templates on page load
   useEffect(() => {
-    const fetchMasterTemplate = async () => {
-      // Only fetch if masterDocument is not already in store
-      if (!masterDocument) {
-        try {
-          const { latexCode: fetchedLatexCode } = await resumeApi.getMasterTemplate();
-          if (fetchedLatexCode) {
-            // Set the master document in store
-            setMasterDocument(fetchedLatexCode);
-          }
-        } catch (err) {
-          // Template doesn't exist yet, which is fine
-          console.log('No master template found');
+    const fetchMasterTemplates = async () => {
+      try {
+        // Fetch both master resume and cover letter templates in parallel
+        const [resumeTemplate, coverLetterTemplate] = await Promise.all([
+          resumeApi.getMasterTemplate(),
+          resumeApi.getMasterCoverLetterTemplate(),
+        ]);
+
+        if (resumeTemplate.latexCode) {
+          setMasterDocument(resumeTemplate.latexCode);
+          setResumeLatexCode(resumeTemplate.latexCode);
         }
+
+        if (coverLetterTemplate.latexCode) {
+          setMasterCoverLetterTemplate(coverLetterTemplate.latexCode);
+        }
+      } catch (err) {
+        console.log('Failed to fetch master templates');
       }
     };
 
-    fetchMasterTemplate();
-  }, [masterDocument, setMasterDocument]);
+    fetchMasterTemplates();
+  }, [setMasterDocument]);
 
-  // Initialize latexCode with masterDocument on mount
+  // Handle tab switching - update prompt and LaTeX code based on active tab
   useEffect(() => {
-    if (masterDocument && !latexCode) {
-      setLatexCode(masterDocument);
+    if (activeTab === 'resume') {
+      setPrompt(DEFAULT_RESUME_PROMPT);
+      setLatexCode(resumeLatexCode || masterDocument);
+    } else {
+      setPrompt(DEFAULT_COVER_LETTER_PROMPT);
+      setLatexCode(coverLetterLatexCode || masterCoverLetterTemplate);
     }
-  }, [masterDocument, latexCode, setLatexCode]);
+  }, [activeTab, resumeLatexCode, coverLetterLatexCode, masterDocument, masterCoverLetterTemplate, setLatexCode]);
 
   const handleOptimize = async () => {
-    console.log('🚀 Resume Page handleOptimize called');
-    console.log('masterDocument:', masterDocument ? `${masterDocument.length} chars` : 'empty');
-    console.log('jobDescription:', jobDescription ? `${jobDescription.length} chars` : 'empty');
+    const isResume = activeTab === 'resume';
+    const documentType = isResume ? 'resume' : 'cover letter';
+    
+    console.log(`🚀 Optimizing ${documentType}...`);
     
     if (!masterDocument || !jobDescription) {
-      console.log('❌ Validation failed');
-      setError('Please configure your master resume first');
+      setError(`Please configure your master ${documentType} first`);
       return;
     }
 
     if (!user || !user.id) {
-      console.log('❌ User not authenticated');
       setError('User not authenticated. Please log in.');
       return;
     }
@@ -83,38 +105,29 @@ export default function ResumePage() {
     setError(null);
 
     try {
-      // First, ensure the master template is saved
-      console.log('📝 Step 1: Saving master template...');
-      const saveResult = await resumeApi.saveMasterTemplate(masterDocument);
-      console.log('✅ Master template saved:', saveResult);
+      const userId = user.id;
       
-      // Get the saved master template to ensure it's in the database
-      console.log('📝 Step 2: Fetching saved master template...');
-      const { latexCode: savedTemplate } = await resumeApi.getMasterTemplate();
-      console.log('✅ Master template fetched:', savedTemplate ? `${savedTemplate.length} chars` : 'empty');
+      // Analyze job description (shared for both)
+      console.log(`📝 Analyzing job description for ${documentType}...`);
+      await realResumeApi.analyzeJobDescription(userId, jobDescription);
       
-      if (!savedTemplate) {
-        throw new Error('Failed to save master template');
+      // Generate tailored document based on active tab
+      console.log(`📝 Generating tailored ${documentType}...`);
+      const response = await realResumeApi.generateTailoredResume(userId);
+      
+      if (isResume) {
+        setResumeLatexCode(response.latex);
+        setLatexCode(response.latex);
+        toast.success('Resume optimized successfully!');
+      } else {
+        setCoverLetterLatexCode(response.latex);
+        setLatexCode(response.latex);
+        toast.success('Cover letter optimized successfully!');
       }
-
-      // Use the authenticated user's ID
-      const resumeId = user.id;
-      console.log(`📝 Using resumeId: ${resumeId} for user: ${user.email}`);
       
-      // First analyze the job description
-      console.log('📝 Step 3: Analyzing job description with Gemini...');
-      const analysisResult = await realResumeApi.analyzeJobDescription(resumeId, jobDescription);
-      console.log('✅ Job description analyzed:', analysisResult);
-      
-      // Then generate the tailored resume
-      console.log('📝 Step 4: Generating tailored resume with Claude...');
-      const response = await realResumeApi.generateTailoredResume(resumeId);
-      console.log('✅ Tailored resume generated:', response.latex ? `${response.latex.length} chars` : 'empty');
-      
-      setLatexCode(response.latex);
-      console.log('✅ LaTeX code set in store');
+      console.log(`✅ ${documentType} generated: ${response.latex ? `${response.latex.length} chars` : 'empty'}`);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to optimize resume. Please try again.';
+      const errorMessage = err instanceof Error ? err.message : `Failed to optimize ${documentType}. Please try again.`;
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -191,13 +204,38 @@ export default function ResumePage() {
     <div className="h-full flex">
       {/* Left Section - Input */}
       <div className="flex-1 flex flex-col border-r border-slate-200 dark:border-slate-700 overflow-hidden">
+        {/* Tab Navigation */}
+        <div className="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+          <button
+            onClick={() => setActiveTab('resume')}
+            className={`flex-1 px-6 py-4 font-semibold text-sm transition-colors border-b-2 ${
+              activeTab === 'resume'
+                ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-400'
+                : 'text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            Resume
+          </button>
+          <button
+            onClick={() => setActiveTab('coverLetter')}
+            className={`flex-1 px-6 py-4 font-semibold text-sm transition-colors border-b-2 ${
+              activeTab === 'coverLetter'
+                ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-400'
+                : 'text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            Cover Letter
+          </button>
+        </div>
+
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Job Description */}
+          {/* Job Description - Shared for both tabs */}
           <div className="flex-1 flex flex-col border-b border-slate-200 dark:border-slate-700 overflow-hidden">
             <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
               <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                 JOB DESCRIPTION
               </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Common for both resume and cover letter</p>
             </div>
             <textarea
               value={jobDescription}
@@ -207,11 +245,11 @@ export default function ResumePage() {
             />
           </div>
 
-          {/* LLM Prompt */}
+          {/* LLM Prompt - Dynamic based on active tab */}
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
               <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                LLM PROMPT (Optional)
+                {activeTab === 'resume' ? 'RESUME OPTIMIZATION PROMPT' : 'COVER LETTER PROMPT'} (Optional)
               </label>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Modify the prompt if needed</p>
             </div>
@@ -231,7 +269,7 @@ export default function ResumePage() {
             className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
           >
             <Sparkles size={18} />
-            {isLoading ? 'Optimizing...' : 'Optimize Resume with AI'}
+            {isLoading ? `Optimizing ${activeTab === 'resume' ? 'Resume' : 'Cover Letter'}...` : `Optimize ${activeTab === 'resume' ? 'Resume' : 'Cover Letter'} with AI`}
           </button>
         </div>
       </div>
@@ -241,7 +279,7 @@ export default function ResumePage() {
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
             <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              LATEX CODE (Editable)
+              {activeTab === 'resume' ? 'RESUME LATEX CODE' : 'COVER LETTER LATEX CODE'} (Editable)
             </label>
             <span className="text-xs text-slate-500 dark:text-slate-400">
               {latexCode.length > 0 && `${Math.round(latexCode.length / 1024)} KB`}
@@ -250,7 +288,7 @@ export default function ResumePage() {
           <textarea
             value={latexCode}
             onChange={(e) => setLatexCode(e.target.value)}
-            placeholder="LaTeX code will appear here after optimization or paste your saved template..."
+            placeholder={`LaTeX code will appear here after optimization or paste your saved ${activeTab === 'resume' ? 'resume' : 'cover letter'} template...`}
             className="flex-1 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
           />
         </div>
@@ -274,14 +312,16 @@ export default function ResumePage() {
               <Download size={18} />
               Download
             </button>
-            <button
-              onClick={handleCheckATSScore}
-              disabled={!latexCode || !jobDescription || atsLoading || isLoading}
-              className="flex-2 flex items-center justify-center gap-2 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
-            >
-              <TrendingUp size={18} />
-              {atsLoading ? 'Checking ATS Score...' : 'Check ATS Score'}
-            </button>
+            {activeTab === 'resume' && (
+              <button
+                onClick={handleCheckATSScore}
+                disabled={!latexCode || !jobDescription || atsLoading || isLoading}
+                className="flex-2 flex items-center justify-center gap-2 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
+              >
+                <TrendingUp size={18} />
+                {atsLoading ? 'Checking ATS Score...' : 'Check ATS Score'}
+              </button>
+            )}
           </div>
         </div>
       </div>
