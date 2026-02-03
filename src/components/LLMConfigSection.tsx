@@ -338,23 +338,36 @@ export const LLMConfigSection = () => {
                 </div>
               )}
 
-              <button
-                onClick={handleSave}
-                disabled={isLoading || !analyzerApiKey.trim() || !generatorApiKey.trim()}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
-              >
-                {isLoading ? (
-                  <>
-                    <div className="animate-spin">⏳</div>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save size={18} />
-                    Save Configuration
-                  </>
-                )}
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSave}
+                  disabled={isLoading || !analyzerApiKey.trim() || !generatorApiKey.trim()}
+                  className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin">⏳</div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={18} />
+                      Save Configuration
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setAnalyzerApiKey('');
+                    setGeneratorApiKey('');
+                    setErrorMessage('');
+                    setSuccessMessage('');
+                  }}
+                  className="px-6 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 font-medium transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
             </div>
         </>
       )}

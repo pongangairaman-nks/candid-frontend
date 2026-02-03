@@ -118,6 +118,35 @@ export const resumeApi = {
     }
   },
 
+  saveMasterCoverLetterTemplate: async (latexCode: string): Promise<{ message: string }> => {
+    try {
+      const response = await apiClient.post<{ message: string }>(
+        '/resume/save-master-cover-letter-template',
+        { latexCode }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error saving master cover letter template:', error);
+      throw error;
+    }
+  },
+
+  getMasterCoverLetterTemplate: async (): Promise<{ latexCode: string }> => {
+    try {
+      const response = await apiClient.get<{ data: { latexCode: string } }>(
+        '/resume/master-cover-letter-template'
+      );
+      return { latexCode: response.data.data.latexCode };
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status: number } };
+      if (axiosError.response?.status === 404) {
+        return { latexCode: '' };
+      }
+      console.error('Error fetching master cover letter template:', error);
+      throw error;
+    }
+  },
+
   optimizeResume: async (data: OptimizeResumeRequest): Promise<OptimizeResumeResponse> => {
     try {
       const response = await apiClient.post<OptimizeResumeResponse>(
@@ -285,7 +314,7 @@ export const realResumeApi = {
       );
       return { analysis: response.data.data.analysis };
     } catch (error) {
-      const axiosError = error as any;
+      const axiosError = error as { response?: { data?: { message?: string; error?: string } }; message?: string };
       const errorMessage = axiosError?.response?.data?.message || axiosError?.response?.data?.error || axiosError?.message || 'Failed to analyze job description';
       const err = new Error(errorMessage);
       throw err;
@@ -300,7 +329,7 @@ export const realResumeApi = {
       );
       return { latex: response.data.data.latex };
     } catch (error) {
-      const axiosError = error as any;
+      const axiosError = error as { response?: { data?: { message?: string; error?: string } }; message?: string };
       const errorMessage = axiosError?.response?.data?.message || axiosError?.response?.data?.error || axiosError?.message || 'Failed to generate tailored resume';
       const err = new Error(errorMessage);
       throw err;
