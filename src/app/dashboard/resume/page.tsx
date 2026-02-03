@@ -201,41 +201,45 @@ export default function ResumePage() {
   };
 
   return (
-    <div className="h-full flex">
+    <div className="h-full flex bg-white dark:bg-slate-900">
       {/* Left Section - Input */}
-      <div className="flex-1 flex flex-col border-r border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden border-r border-slate-200 dark:border-slate-700">
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-          <button
-            onClick={() => setActiveTab('resume')}
-            className={`flex-1 px-6 py-4 font-semibold text-sm transition-colors border-b-2 ${
-              activeTab === 'resume'
-                ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-400'
-                : 'text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            Resume
-          </button>
-          <button
-            onClick={() => setActiveTab('coverLetter')}
-            className={`flex-1 px-6 py-4 font-semibold text-sm transition-colors border-b-2 ${
-              activeTab === 'coverLetter'
-                ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-400'
-                : 'text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            Cover Letter
-          </button>
+        <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4">
+          <div className="flex gap-3">
+            <button
+              onClick={() => setActiveTab('resume')}
+              className={`px-4 py-2 text-sm font-medium transition-all duration-200 rounded-md flex items-center gap-2 ${
+                activeTab === 'resume'
+                  ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <span>📄</span>
+              <span>Resume</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('coverLetter')}
+              className={`px-4 py-2 text-sm font-medium transition-all duration-200 rounded-md flex items-center gap-2 ${
+                activeTab === 'coverLetter'
+                  ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <span>✉️</span>
+              <span>Cover Letter</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden px-4 pt-4 pb-0 gap-4">
           {/* Job Description - Shared for both tabs */}
-          <div className="flex-1 flex flex-col border-b border-slate-200 dark:border-slate-700 overflow-hidden">
-            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                JOB DESCRIPTION
+          <div className="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+              <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Job Description
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Common for both resume and cover letter</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Shared for both resume and cover letter</p>
             </div>
             <textarea
               value={jobDescription}
@@ -246,12 +250,12 @@ export default function ResumePage() {
           </div>
 
           {/* LLM Prompt - Dynamic based on active tab */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                {activeTab === 'resume' ? 'RESUME OPTIMIZATION PROMPT' : 'COVER LETTER PROMPT'} (Optional)
+          <div className="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+              <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {activeTab === 'resume' ? 'Resume Optimization Prompt' : 'Cover Letter Prompt'}
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Modify the prompt if needed</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Customize the prompt if needed</p>
             </div>
             <textarea
               value={prompt}
@@ -261,28 +265,33 @@ export default function ResumePage() {
           </div>
         </div>
 
-        {/* Action Button */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-          <button
-            onClick={handleOptimize}
-            disabled={!masterDocument || !jobDescription || isLoading}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
-          >
-            <Sparkles size={18} />
-            {isLoading ? `Optimizing ${activeTab === 'resume' ? 'Resume' : 'Cover Letter'}...` : `Optimize ${activeTab === 'resume' ? 'Resume' : 'Cover Letter'} with AI`}
-          </button>
+        {/* Action Button - Floating Card */}
+        <div className="px-4 py-4">
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+            <button
+              onClick={handleOptimize}
+              disabled={!masterDocument || !jobDescription || isLoading}
+              className="w-full flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium transition-colors duration-200 dark:disabled:bg-slate-700"
+            >
+              <Sparkles size={18} className={isLoading ? 'animate-spin' : ''} />
+              {isLoading ? `Optimizing ${activeTab === 'resume' ? 'Resume' : 'Cover Letter'}...` : `Optimize ${activeTab === 'resume' ? 'Resume' : 'Cover Letter'} with AI`}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Right Section - LaTeX Code */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              {activeTab === 'resume' ? 'RESUME LATEX CODE' : 'COVER LETTER LATEX CODE'} (Editable)
-            </label>
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              {latexCode.length > 0 && `${Math.round(latexCode.length / 1024)} KB`}
+      <div className="flex-1 flex flex-col overflow-hidden p-4 gap-4 bg-white dark:bg-slate-900">
+        <div className="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+            <div>
+              <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {activeTab === 'resume' ? 'Resume LaTeX Code' : 'Cover Letter LaTeX Code'}
+              </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Editable • Auto-formatted</p>
+            </div>
+            <span className="text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
+              {latexCode.length > 0 ? `${Math.round(latexCode.length / 1024)} KB` : 'Empty'}
             </span>
           </div>
           <textarea
@@ -293,13 +302,13 @@ export default function ResumePage() {
           />
         </div>
 
-        {/* Action Buttons */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 space-y-3">
+        {/* Action Buttons - Floating Card */}
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
           <div className="flex gap-3">
             <button
               onClick={handlePreview}
               disabled={!latexCode || pdfLoading || isLoading}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium transition-colors duration-200 dark:disabled:bg-slate-700"
             >
               <Eye size={18} />
               Preview
@@ -307,7 +316,7 @@ export default function ResumePage() {
             <button
               onClick={handleDownload}
               disabled={!latexCode || pdfLoading || isLoading}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium transition-colors duration-200 dark:disabled:bg-slate-700"
             >
               <Download size={18} />
               Download
@@ -316,7 +325,7 @@ export default function ResumePage() {
               <button
                 onClick={handleCheckATSScore}
                 disabled={!latexCode || !jobDescription || atsLoading || isLoading}
-                className="flex-2 flex items-center justify-center gap-2 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium transition-colors duration-200 dark:disabled:bg-slate-700"
               >
                 <TrendingUp size={18} />
                 {atsLoading ? 'Checking ATS Score...' : 'Check ATS Score'}
