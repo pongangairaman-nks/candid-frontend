@@ -13,8 +13,8 @@ export const NavigationSidebar = () => {
 
   const navItems = [
     {
-      label: 'Resume Creation',
-      href: '/dashboard/resume',
+      label: 'Job Applications',
+      href: '/dashboard/jobs',
       icon: FileText,
     },
     {

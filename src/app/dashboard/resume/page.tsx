@@ -21,7 +21,7 @@ const DEFAULT_COVER_LETTER_PROMPT = `You are an expert cover letter writer. Base
 
 Format the output as a LaTeX cover letter template.`;
 
-export default function ResumePage() {
+function ResumeGenerationPage() {
   const {
     masterDocument,
     jobDescription,
@@ -353,3 +353,5 @@ export default function ResumePage() {
     </div>
   );
 }
+
+export default ResumeGenerationPage;

@@ -415,3 +415,82 @@ Bachelor's Degree -- Chennai, India
     }
   },
 };
+
+export interface JobApplication {
+  id?: number;
+  position: string;
+  company_name: string;
+  industry?: string;
+  company_url?: string;
+  job_url?: string;
+  job_portal?: string;
+  status: string;
+  applied_date?: string;
+  interview_date?: string;
+  notes?: string;
+  resume_pdf_url?: string;
+  cover_letter_pdf_url?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const jobApplicationApi = {
+  getAll: async (): Promise<JobApplication[]> => {
+    try {
+      const response = await apiClient.get('/job-applications');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching job applications:', error);
+      throw error;
+    }
+  },
+
+  getById: async (id: number): Promise<JobApplication> => {
+    try {
+      const response = await apiClient.get(`/job-applications/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching job application:', error);
+      throw error;
+    }
+  },
+
+  create: async (data: JobApplication): Promise<JobApplication> => {
+    try {
+      const response = await apiClient.post('/job-applications', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating job application:', error);
+      throw error;
+    }
+  },
+
+  update: async (id: number, data: Partial<JobApplication>): Promise<JobApplication> => {
+    try {
+      const response = await apiClient.put(`/job-applications/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating job application:', error);
+      throw error;
+    }
+  },
+
+  delete: async (id: number): Promise<void> => {
+    try {
+      await apiClient.delete(`/job-applications/${id}`);
+    } catch (error) {
+      console.error('Error deleting job application:', error);
+      throw error;
+    }
+  },
+
+  updateStatus: async (id: number, status: string): Promise<JobApplication> => {
+    try {
+      const response = await apiClient.patch(`/job-applications/${id}/status`, { status });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating job application status:', error);
+      throw error;
+    }
+  },
+};
