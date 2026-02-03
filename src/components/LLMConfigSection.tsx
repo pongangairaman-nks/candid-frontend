@@ -6,6 +6,25 @@ import { CustomSelect } from './CustomSelect';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+// Cache for LLM config to prevent unnecessary API calls
+interface ConfigCache {
+  data: LLMConfigData | null;
+  timestamp: number;
+}
+
+interface LLMConfigData {
+  analyzer_provider: string;
+  analyzer_model: string;
+  analyzer_api_key: string | null;
+  generator_provider: string;
+  generator_model: string;
+  generator_api_key: string | null;
+  master_content: string | null;
+}
+
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+let globalConfigCache: ConfigCache = { data: null, timestamp: 0 };
+
 interface Model {
   id: string;
   name: string;
@@ -48,7 +67,7 @@ export const LLMConfigSection = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Load config from backend on mount
+  // Load config from backend on mount with caching
   useEffect(() => {
     const fetchConfig = async () => {
       try {
@@ -60,6 +79,26 @@ export const LLMConfigSection = () => {
           return;
         }
 
+        // Check cache first
+        const now = Date.now();
+        if (globalConfigCache.data && now - globalConfigCache.timestamp < CACHE_DURATION) {
+          // Use cached data
+          const config = globalConfigCache.data;
+          setAnalyzerProvider(config.analyzer_provider);
+          setAnalyzerModel(config.analyzer_model);
+          if (config.analyzer_api_key) {
+            setAnalyzerApiKey(config.analyzer_api_key);
+          }
+          setGeneratorProvider(config.generator_provider);
+          setGeneratorModel(config.generator_model);
+          if (config.generator_api_key) {
+            setGeneratorApiKey(config.generator_api_key);
+          }
+          setIsFetching(false);
+          return;
+        }
+
+        // Fetch from backend if cache expired
         const response = await fetch(`${API_BASE_URL}/llm/config`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -68,23 +107,22 @@ export const LLMConfigSection = () => {
 
         if (response.ok) {
           const config = await response.json();
-          console.log('✅ Fetched LLM config from backend');
           
-          if (config.analyzer_provider) {
-            setAnalyzerProvider(config.analyzer_provider);
-            setAnalyzerModel(config.analyzer_model);
-            if (config.analyzer_api_key) {
-              setAnalyzerApiKey(config.analyzer_api_key);
-              console.log('✅ Analyzer API key loaded');
-            }
+          // Update cache
+          globalConfigCache = {
+            data: config,
+            timestamp: now,
+          };
+
+          setAnalyzerProvider(config.analyzer_provider);
+          setAnalyzerModel(config.analyzer_model);
+          if (config.analyzer_api_key) {
+            setAnalyzerApiKey(config.analyzer_api_key);
           }
-          if (config.generator_provider) {
-            setGeneratorProvider(config.generator_provider);
-            setGeneratorModel(config.generator_model);
-            if (config.generator_api_key) {
-              setGeneratorApiKey(config.generator_api_key);
-              console.log('✅ Generator API key loaded');
-            }
+          setGeneratorProvider(config.generator_provider);
+          setGeneratorModel(config.generator_model);
+          if (config.generator_api_key) {
+            setGeneratorApiKey(config.generator_api_key);
           }
         } else {
           console.warn('⚠️ Failed to fetch config, status:', response.status);
@@ -138,6 +176,9 @@ export const LLMConfigSection = () => {
           setGeneratorProvider(data.config.generator_provider);
           setGeneratorModel(data.config.generator_model);
           setGeneratorApiKey(data.config.generator_api_key || '');
+          
+          // Invalidate cache so next fetch gets fresh data
+          globalConfigCache = { data: null, timestamp: 0 };
         }
         setTimeout(() => setSuccessMessage(''), 3000);
       } else {

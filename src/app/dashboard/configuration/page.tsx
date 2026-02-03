@@ -4,9 +4,12 @@ import { FileText, AlertCircle, Save, Loader, CheckCircle } from 'lucide-react';
 import { useResumeStore } from '@/store/resumeStore';
 import { resumeApi } from '@/services/api';
 import { LLMConfigSection } from '@/components/LLMConfigSection';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 
 type TabType = 'llm' | 'template' | 'content';
+
+// Memoized LLM Config Section to prevent unnecessary re-renders
+const MemoizedLLMConfigSection = memo(LLMConfigSection);
 
 export default function ConfigurationPage() {
   const { masterDocument, setMasterDocument, error, setError } = useResumeStore();
@@ -19,65 +22,47 @@ export default function ConfigurationPage() {
   const [masterCoverLetter, setMasterCoverLetter] = useState('');
   const [coverLetterSaved, setCoverLetterSaved] = useState(false);
   const [coverLetterLoading, setCoverLetterLoading] = useState(false);
+  const [dataFetched, setDataFetched] = useState(false);
+  const fetchAbortRef = useRef<AbortController | null>(null);
 
-  // Fetch master template and master content on page load
+  // Consolidated fetch on page load only
   useEffect(() => {
-    const fetchMasterTemplate = async () => {
+    if (dataFetched) return; // Prevent duplicate fetches
+
+    const fetchAllData = async () => {
       try {
-        const { latexCode } = await resumeApi.getMasterTemplate();
-        setMasterDocument(latexCode);
-        setError(null);
-      } catch {
-        // Template doesn't exist yet, which is fine
-        console.log('No master template found');
-      }
-    };
-
-    fetchMasterTemplate();
-  }, [setMasterDocument, setError]);
-
-  // Fetch master content on page load
-  useEffect(() => {
-    const fetchMasterContent = async () => {
-      try {
-        const token = localStorage.getItem('authToken');
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-
-        const response = await fetch(`${API_BASE_URL}/llm/config`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (response.ok) {
-          const config = await response.json();
-          if (config.master_content) {
-            setMasterContent(config.master_content);
-          }
+        // Abort previous requests if any
+        if (fetchAbortRef.current) {
+          fetchAbortRef.current.abort();
         }
-      } catch {
-        console.log('Failed to fetch master content');
-      }
-    };
+        fetchAbortRef.current = new AbortController();
 
-    fetchMasterContent();
-  }, []);
+        // Fetch all data in parallel
+        const [masterTemplateRes, masterCoverLetterRes] = await Promise.all([
+          resumeApi.getMasterTemplate(),
+          resumeApi.getMasterCoverLetterTemplate(),
+        ]);
 
-  // Fetch master cover letter template on page load
-  useEffect(() => {
-    const fetchMasterCoverLetter = async () => {
-      try {
-        const { latexCode } = await resumeApi.getMasterCoverLetterTemplate();
-        setMasterCoverLetter(latexCode);
+        setMasterDocument(masterTemplateRes.latexCode);
+        setMasterCoverLetter(masterCoverLetterRes.latexCode);
         setError(null);
-      } catch {
-        // Template doesn't exist yet, which is fine
-        console.log('No master cover letter template found');
+        setDataFetched(true);
+      } catch (err) {
+        console.log('Failed to fetch initial data:', err);
+        setDataFetched(true);
       }
     };
 
-    fetchMasterCoverLetter();
-  }, [setError]);
+    fetchAllData();
+
+    // Cleanup on unmount
+    return () => {
+      if (fetchAbortRef.current) {
+        fetchAbortRef.current.abort();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataFetched]);
 
   const handleSave = async () => {
     if (!masterDocument.trim()) {
@@ -211,78 +196,81 @@ export default function ConfigurationPage() {
         {/* LLM Configuration Tab */}
         {activeTab === 'llm' && (
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
-            <LLMConfigSection />
+            <MemoizedLLMConfigSection />
           </div>
         )}
 
         {/* Master Template Tab */}
         {activeTab === 'template' && (
-          <div className="space-y-8">
-            {/* Master Resume Template Section */}
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Master Resume Template</h2>
-              <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-                {/* Label */}
-                <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    MASTER RESUME TEMPLATE (LaTeX)
-                  </label>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {masterDocument.length > 0 && `${Math.round(masterDocument.length / 1024)} KB`}
-                  </span>
+          <div className="space-y-6">
+            {/* Two Column Layout */}
+            <div className="grid grid-cols-2 gap-6">
+              {/* Master Resume Template Section */}
+              <div>
+                {/* <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Master Resume Template</h2> */}
+                <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                  {/* Label */}
+                  <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      MASTER RESUME TEMPLATE (LaTeX)
+                    </label>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      {masterDocument.length > 0 && `${Math.round(masterDocument.length / 1024)} KB`}
+                    </span>
+                  </div>
+
+                  {/* Textarea */}
+                  <textarea
+                    value={masterDocument}
+                    onChange={(e) => {
+                      setMasterDocument(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="Paste your LaTeX resume template here. Example:&#10;&#10;\documentclass{article}&#10;\usepackage[utf8]{inputenc}&#10;...&#10;&#10;\begin{document}&#10;...&#10;\end{document}"
+                    className="h-120 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                  />
                 </div>
 
-                {/* Textarea */}
-                <textarea
-                  value={masterDocument}
-                  onChange={(e) => {
-                    setMasterDocument(e.target.value);
-                    setError(null);
-                  }}
-                  placeholder="Paste your LaTeX resume template here. Example:&#10;&#10;\documentclass{article}&#10;\usepackage[utf8]{inputenc}&#10;...&#10;&#10;\begin{document}&#10;...&#10;\end{document}"
-                  className="h-96 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
-                />
+                {/* Info Box */}
+                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    ℹ️ Paste your complete LaTeX resume template here. This will be prefilled in the Resume Creation section and can be edited after optimization.
+                  </p>
+                </div>
               </div>
 
-              {/* Info Box */}
-              <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  ℹ️ Paste your complete LaTeX resume template here. This will be prefilled in the Resume Creation section and can be edited after optimization.
-                </p>
-              </div>
-            </div>
+              {/* Master Cover Letter Template Section */}
+              <div>
+                {/* <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Master Cover Letter Template</h2> */}
+                <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                  {/* Label */}
+                  <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      MASTER COVER LETTER TEMPLATE (LaTeX)
+                    </label>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      {masterCoverLetter.length > 0 && `${Math.round(masterCoverLetter.length / 1024)} KB`}
+                    </span>
+                  </div>
 
-            {/* Master Cover Letter Template Section */}
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Master Cover Letter Template</h2>
-              <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-                {/* Label */}
-                <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    MASTER COVER LETTER TEMPLATE (LaTeX)
-                  </label>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {masterCoverLetter.length > 0 && `${Math.round(masterCoverLetter.length / 1024)} KB`}
-                  </span>
+                  {/* Textarea */}
+                  <textarea
+                    value={masterCoverLetter}
+                    onChange={(e) => {
+                      setMasterCoverLetter(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="Paste your LaTeX cover letter template here. Example:&#10;&#10;\documentclass{article}&#10;\usepackage[utf8]{inputenc}&#10;...&#10;&#10;\begin{document}&#10;Dear Hiring Manager,&#10;...&#10;\end{document}"
+                    className="h-120 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                  />
                 </div>
 
-                {/* Textarea */}
-                <textarea
-                  value={masterCoverLetter}
-                  onChange={(e) => {
-                    setMasterCoverLetter(e.target.value);
-                    setError(null);
-                  }}
-                  placeholder="Paste your LaTeX cover letter template here. Example:&#10;&#10;\documentclass{article}&#10;\usepackage[utf8]{inputenc}&#10;...&#10;&#10;\begin{document}&#10;Dear Hiring Manager,&#10;...&#10;\end{document}"
-                  className="h-96 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
-                />
-              </div>
-
-              {/* Info Box */}
-              <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  ℹ️ Paste your complete LaTeX cover letter template here. This will be prefilled in the Cover Letter Creation section and can be edited after optimization.
-                </p>
+                {/* Info Box */}
+                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    ℹ️ Paste your complete LaTeX cover letter template here. This will be prefilled in the Cover Letter Creation section and can be edited after optimization.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -355,7 +343,7 @@ export default function ConfigurationPage() {
         {activeTab === 'content' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Master Content</h2>
+              {/* <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Master Content</h2> */}
               <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
                 {/* Label */}
                 <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
@@ -377,7 +365,7 @@ export default function ConfigurationPage() {
                     }
                   }}
                   placeholder="Paste your comprehensive skills, experiences, projects, certifications, and achievements here. Include details not in your current resume. (Max 50KB)"
-                  className="h-96 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                  className="h-120 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
                 />
               </div>
 
