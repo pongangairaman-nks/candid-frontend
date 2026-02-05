@@ -433,9 +433,24 @@ export interface JobApplication {
   cover_letter_pdf_url?: string;
   generated_resume_latex?: string;
   generated_cover_letter_latex?: string;
+  resume_prompt?: string;
+  cover_letter_prompt?: string;
+  last_modified_at?: string;
   created_at?: string;
   updated_at?: string;
 }
+
+export const promptsApi = {
+  getDefaults: async (): Promise<{ resume_prompt: string; cover_letter_prompt: string }> => {
+    try {
+      const response = await apiClient.get('/prompts/defaults');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching default prompts:', error);
+      throw error;
+    }
+  },
+};
 
 export const jobApplicationApi = {
   getAll: async (): Promise<JobApplication[]> => {

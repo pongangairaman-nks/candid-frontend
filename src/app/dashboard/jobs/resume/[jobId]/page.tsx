@@ -1,16 +1,28 @@
 'use client';
 
-import { Sparkles, Eye, Download, TrendingUp, FileText, Mail } from 'lucide-react';
+import { Sparkles, Eye, Download, TrendingUp, FileText, Mail, Loader } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useResumeStore } from '@/store/resumeStore';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { resumeApi, jobApplicationApi, type ATSScoreResponse } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
-import { DEFAULT_RESUME_PROMPT, DEFAULT_COVER_LETTER_PROMPT } from '@/constants/prompts';
 import { useParams } from 'next/navigation';
 
 type TabType = 'resume' | 'coverLetter';
+
+const formatTimeDifference = (date: Date): string => {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+
+  if (diffSecs < 60) return 'Just now';
+  if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  return date.toLocaleDateString();
+};
 
 export default function ResumeGenerationPage() {
   const params = useParams();
@@ -29,7 +41,7 @@ export default function ResumeGenerationPage() {
   } = useResumeStore();
 
   const [activeTab, setActiveTab] = useState<TabType>('resume');
-  const [prompt, setPrompt] = useState(DEFAULT_RESUME_PROMPT);
+  const [prompt, setPrompt] = useState('');
   const [resumeLatexCode, setResumeLatexCode] = useState('');
   const [coverLetterLatexCode, setCoverLetterLatexCode] = useState('');
   const [showPreview, setShowPreview] = useState(false);
@@ -39,6 +51,113 @@ export default function ResumeGenerationPage() {
   const [atsLoading, setAtsLoading] = useState(false);
   const [atsData, setAtsData] = useState<ATSScoreResponse | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [resumePrompt, setResumePrompt] = useState('');
+  const [coverLetterPrompt, setCoverLetterPrompt] = useState('');
+  const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const updateTimestampIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Autosave job description
+  useEffect(() => {
+    if (!jobDescription || !jobId) return;
+
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    autosaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        setIsSaving(true);
+        const updatedApp = await jobApplicationApi.update(parseInt(jobId), {
+          job_description: jobDescription,
+        });
+        // Use backend timestamp for accuracy
+        if (updatedApp.last_modified_at) {
+          setLastSavedTime(new Date(updatedApp.last_modified_at));
+        }
+        console.log('Job description autosaved');
+      } catch (error) {
+        console.error('Failed to autosave job description:', error);
+      } finally {
+        setIsSaving(false);
+      }
+    }, 1000); // Debounce for 1 second
+
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+      }
+    };
+  }, [jobDescription, jobId]);
+
+  // Autosave prompt
+  useEffect(() => {
+    if (!prompt || !jobId) return;
+
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    autosaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        setIsSaving(true);
+        const fieldName = activeTab === 'resume' ? 'resume_prompt' : 'cover_letter_prompt';
+        const updatedApp = await jobApplicationApi.update(parseInt(jobId), {
+          [fieldName]: prompt,
+        });
+        // Use backend timestamp for accuracy
+        if (updatedApp.last_modified_at) {
+          setLastSavedTime(new Date(updatedApp.last_modified_at));
+        }
+        console.log('Prompt autosaved');
+      } catch (error) {
+        console.error('Failed to autosave prompt:', error);
+      } finally {
+        setIsSaving(false);
+      }
+    }, 1000); // Debounce for 1 second
+
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+      }
+    };
+  }, [prompt, jobId, activeTab]);
+
+  // Autosave LaTeX content
+  useEffect(() => {
+    if (!latexCode || !jobId) return;
+
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    autosaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        setIsSaving(true);
+        const fieldName = activeTab === 'resume' ? 'generated_resume_latex' : 'generated_cover_letter_latex';
+        const updatedApp = await jobApplicationApi.update(parseInt(jobId), {
+          [fieldName]: latexCode,
+        });
+        // Use backend timestamp for accuracy
+        if (updatedApp.last_modified_at) {
+          setLastSavedTime(new Date(updatedApp.last_modified_at));
+        }
+        console.log('LaTeX content autosaved');
+      } catch (error) {
+        console.error('Failed to autosave LaTeX content:', error);
+      } finally {
+        setIsSaving(false);
+      }
+    }, 2000); // Debounce for 2 seconds (longer for LaTeX as it's larger)
+
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+      }
+    };
+  }, [latexCode, jobId, activeTab]);
 
   // Fetch job application data and master templates on page load
   useEffect(() => {
@@ -49,6 +168,11 @@ export default function ResumeGenerationPage() {
         const jobApp = await jobApplicationApi.getById(parseInt(jobId));
         if (jobApp.job_description) {
           setJobDescription(jobApp.job_description);
+        }
+
+        // Load last modified timestamp from database
+        if (jobApp.last_modified_at) {
+          setLastSavedTime(new Date(jobApp.last_modified_at));
         }
 
         // Fetch master templates
@@ -71,6 +195,19 @@ export default function ResumeGenerationPage() {
           setResumeLatexCode(jobApp.generated_resume_latex);
           setLatexCode(jobApp.generated_resume_latex);
         }
+
+        if (jobApp.generated_cover_letter_latex) {
+          setCoverLetterLatexCode(jobApp.generated_cover_letter_latex);
+        }
+
+        // Load prompts from job application (includes defaults if not customized)
+        if (jobApp.resume_prompt) {
+          setResumePrompt(jobApp.resume_prompt);
+          setPrompt(jobApp.resume_prompt);
+        }
+        if (jobApp.cover_letter_prompt) {
+          setCoverLetterPrompt(jobApp.cover_letter_prompt);
+        }
       } catch (error) {
         console.error('Failed to fetch data:', error);
         toast.error('Failed to load job application data');
@@ -84,16 +221,35 @@ export default function ResumeGenerationPage() {
     }
   }, [jobId, setMasterDocument, setJobDescription, setLatexCode]);
 
-  // Handle tab switching - update prompt and LaTeX code based on active tab
+  // Update timestamp display every minute to keep "X mins ago" current
+  useEffect(() => {
+    if (!lastSavedTime) return;
+
+    updateTimestampIntervalRef.current = setInterval(() => {
+      setLastSavedTime(new Date(lastSavedTime));
+    }, 60000); // Update every minute
+
+    return () => {
+      if (updateTimestampIntervalRef.current) {
+        clearInterval(updateTimestampIntervalRef.current);
+      }
+    };
+  }, [lastSavedTime]);
+
+  // Handle tab switching - update LaTeX code and prompt based on active tab
   useEffect(() => {
     if (activeTab === 'resume') {
-      setPrompt(DEFAULT_RESUME_PROMPT);
       setLatexCode(resumeLatexCode);
+      if (resumePrompt) {
+        setPrompt(resumePrompt);
+      }
     } else {
-      setPrompt(DEFAULT_COVER_LETTER_PROMPT);
       setLatexCode(coverLetterLatexCode);
+      if (coverLetterPrompt) {
+        setPrompt(coverLetterPrompt);
+      }
     }
-  }, [activeTab, resumeLatexCode, coverLetterLatexCode, setLatexCode]);
+  }, [activeTab, resumeLatexCode, coverLetterLatexCode, resumePrompt, coverLetterPrompt, setLatexCode]);
 
   const handleOptimize = async () => {
     if (!masterDocument || !jobDescription) {
@@ -201,29 +357,48 @@ export default function ResumeGenerationPage() {
     <div className="h-full flex flex-col overflow-auto bg-white dark:bg-slate-900">
       {/* Tabs */}
       <div className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-        <div className="px-6 md:px-8 flex gap-8">
-          <button
-            onClick={() => setActiveTab('resume')}
-            className={`py-4 px-2 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === 'resume'
-                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-300'
-            }`}
-          >
-            <FileText size={16} />
-            Resume
-          </button>
-          <button
-            onClick={() => setActiveTab('coverLetter')}
-            className={`py-4 px-2 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === 'coverLetter'
-                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-300'
-            }`}
-          >
-            <Mail size={16} />
-            Cover Letter
-          </button>
+        <div className="px-6 md:px-8 flex items-center justify-between">
+          <div className="flex gap-8">
+            <button
+              onClick={() => setActiveTab('resume')}
+              className={`py-4 px-2 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 ${
+                activeTab === 'resume'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-300'
+              }`}
+            >
+              <FileText size={16} />
+              Resume
+            </button>
+            <button
+              onClick={() => setActiveTab('coverLetter')}
+              className={`py-4 px-2 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 ${
+                activeTab === 'coverLetter'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-300'
+              }`}
+            >
+              <Mail size={16} />
+              Cover Letter
+            </button>
+          </div>
+
+          {/* Autosave Status Indicator */}
+          <div className="flex items-center gap-2 py-4">
+            {isSaving ? (
+              <>
+                <Loader size={14} className="animate-spin text-indigo-600 dark:text-indigo-400" />
+                <span className="text-xs text-slate-600 dark:text-slate-400">Saving...</span>
+              </>
+            ) : lastSavedTime ? (
+              <>
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-xs text-slate-600 dark:text-slate-400">
+                  Last saved {formatTimeDifference(lastSavedTime)}
+                </span>
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
 

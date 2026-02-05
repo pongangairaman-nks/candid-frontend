@@ -70,10 +70,16 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
         const newApp = await jobApplicationApi.create(data);
         setApplications([newApp, ...applications]);
         toast.success('Job application created successfully');
+        setModalOpen(false);
+        // Navigate to resume automation page with the new job ID
+        if (newApp.id) {
+          router.push(`/dashboard/jobs/resume/${newApp.id}`);
+        }
       } else if (modalMode === 'edit' && selectedApplication?.id) {
         const updatedApp = await jobApplicationApi.update(selectedApplication.id, data);
         setApplications(applications.map((app) => (app.id === updatedApp.id ? updatedApp : app)));
         toast.success('Job application updated successfully');
+        setModalOpen(false);
       }
     } catch (error) {
       toast.error('Failed to save job application');
