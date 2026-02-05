@@ -13,7 +13,7 @@ export default function Home() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/dashboard/resume');
+      router.push('/dashboard/jobs');
     }
   }, [isAuthenticated, router]);
 

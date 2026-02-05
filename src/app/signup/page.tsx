@@ -51,7 +51,7 @@ export default function SignupPage() {
         firstName: formData.firstName,
         lastName: formData.lastName,
       });
-      router.push('/dashboard/resume');
+      router.push('/dashboard/jobs');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Signup failed';
       setLocalError(errorMessage);

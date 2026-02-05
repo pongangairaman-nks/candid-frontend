@@ -25,7 +25,7 @@ export default function LoginPage() {
 
     try {
       await login({ email, password });
-      router.push('/dashboard/resume');
+      router.push('/dashboard/jobs');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
       setLocalError(errorMessage);
