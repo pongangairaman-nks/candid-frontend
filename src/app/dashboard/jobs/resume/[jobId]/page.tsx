@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { resumeApi, jobApplicationApi, llmConfigApi, type ATSScoreResponse } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
+import { SelectiveOptimizationModal } from '@/components/SelectiveOptimizationModal';
 import { useParams } from 'next/navigation';
 
 type TabType = 'resume' | 'coverLetter';
@@ -55,8 +56,33 @@ export default function ResumeGenerationPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [resumePrompt, setResumePrompt] = useState('');
   const [coverLetterPrompt, setCoverLetterPrompt] = useState('');
+  const [showOptimizationModal, setShowOptimizationModal] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const [optimizedText, setOptimizedText] = useState('');
+  const [optimizationLoading, setOptimizationLoading] = useState(false);
+  const [showOptimizeButton, setShowOptimizeButton] = useState(false);
+  const [buttonPosition, setButtonPosition] = useState({ top: 0, left: 0 });
+  const [customPrompt, setCustomPrompt] = useState('');
   const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const updateTimestampIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const floatingPanelRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Handle click outside floating panel to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (floatingPanelRef.current && !floatingPanelRef.current.contains(event.target as Node)) {
+        setShowOptimizeButton(false);
+      }
+    };
+
+    if (showOptimizeButton) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showOptimizeButton]);
 
   // Autosave job description
   useEffect(() => {
@@ -366,6 +392,94 @@ export default function ResumeGenerationPage() {
     }
   };
 
+  // Handle text selection in textarea
+  const handleTextSelection = () => {
+    if (!textareaRef.current) return;
+
+    const textarea = textareaRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = latexCode.substring(start, end);
+
+
+    if (selected.trim()) {
+      // Calculate button position based on selection
+      // Get textarea position and scroll offset
+      const textareaRect = textarea.getBoundingClientRect();
+      const scrollTop = textarea.scrollTop;
+      const scrollLeft = textarea.scrollLeft;
+
+      // Estimate position based on selection (approximate line height and character width)
+      const lineHeight = 20; // Approximate line height for monospace font
+      const charWidth = 8; // Approximate character width for monospace font
+
+      // Count lines before selection end
+      const textBeforeSelection = latexCode.substring(0, end);
+      const lines = textBeforeSelection.split('\n');
+      const lineNumber = lines.length - 1;
+      const columnNumber = lines[lines.length - 1].length;
+
+      // Calculate position - move panel further below the selection
+      const top = textareaRect.top + (lineNumber + 2.5) * lineHeight - scrollTop + 15;
+      const left = textareaRect.left + Math.max(0, columnNumber * charWidth - 150) - scrollLeft;
+
+      setButtonPosition({ top, left });
+      setShowOptimizeButton(true);
+      setSelectedText(selected);
+      setCustomPrompt(''); // Reset custom prompt when new text is selected
+    } else {
+      setShowOptimizeButton(false);
+    }
+  };
+
+
+  const handleOptimizeSelection = async () => {
+    if (!selectedText.trim()) {
+      toast.error('Please select text to optimize');
+      return;
+    }
+
+    if (!jobDescription) {
+      toast.error('Please provide job description for optimization context');
+      return;
+    }
+
+    setOptimizationLoading(true);
+    setShowOptimizeButton(false);
+
+    // Use custom prompt if provided, otherwise use the default prompt
+    const optimizationPrompt = customPrompt.trim() || prompt;
+
+    try {
+      const response = await resumeApi.optimizeSection(
+        selectedText,
+        jobDescription,
+        optimizationPrompt
+      );
+      setOptimizedText(response.optimizedText);
+      setShowOptimizationModal(true);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to optimize section';
+      toast.error(errorMessage);
+    } finally {
+      setOptimizationLoading(false);
+    }
+  };
+
+  const handleApplyOptimization = (optimized: string) => {
+    if (!textareaRef.current) return;
+
+    const textarea = textareaRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    const newLatexCode = latexCode.substring(0, start) + optimized + latexCode.substring(end);
+    setLatexCode(newLatexCode);
+
+    setShowOptimizationModal(false);
+    toast.success('Section optimized and applied!');
+  };
+
   return (
     <div className="h-full flex flex-col overflow-auto bg-white dark:bg-slate-900">
       {/* Tabs */}
@@ -473,7 +587,7 @@ export default function ResumeGenerationPage() {
           {/* Right Section - LaTeX Code and Actions */}
           <div className="flex flex-col space-y-6">
             {/* LaTeX Code Display */}
-            <div className="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden relative">
               <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <div>
                   <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -485,11 +599,37 @@ export default function ResumeGenerationPage() {
                   {latexCode.length > 0 ? `${Math.round(latexCode.length / 1024)} KB` : 'Empty'}
                 </span>
               </div>
+              
+              {/* Selection Highlight - Only the selected portion */}
+              {showOptimizeButton && selectedText && (
+                <div className="absolute top-12 left-0 right-0 bottom-0 pointer-events-none overflow-hidden">
+                  <div className="relative w-full h-full px-6 py-4 font-mono text-sm whitespace-pre-wrap">
+                    <span className="text-transparent">
+                      {latexCode.substring(0, latexCode.indexOf(selectedText))}
+                    </span>
+                    <span className="bg-orange-200 dark:bg-orange-850/30 text-transparent rounded px-1">
+                      {selectedText}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
               <textarea
+                ref={textareaRef}
                 value={latexCode}
                 onChange={(e) => setLatexCode(e.target.value)}
+                onMouseUp={() => {
+                  if (!showOptimizeButton) handleTextSelection();
+                }}
+                onKeyUp={() => {
+                  if (!showOptimizeButton) handleTextSelection();
+                }}
+                style={{
+                  pointerEvents: showOptimizeButton ? 'none' : 'auto',
+                  backgroundColor: 'transparent',
+                }}
                 placeholder={`LaTeX code will appear here after optimization or paste your saved ${activeTab === 'resume' ? 'resume' : 'cover letter'} template...`}
-                className="flex-1 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                className="flex-1 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 relative z-10"
               />
             </div>
 
@@ -542,6 +682,70 @@ export default function ResumeGenerationPage() {
         atsData={atsData}
         isLoading={atsLoading}
       />
+
+      {/* Selective Optimization Modal */}
+      <SelectiveOptimizationModal
+        isOpen={showOptimizationModal}
+        onClose={() => setShowOptimizationModal(false)}
+        onApply={handleApplyOptimization}
+        originalText={selectedText}
+        optimizedText={optimizedText}
+        isLoading={optimizationLoading}
+      />
+
+      {/* Dynamic Floating Optimize Panel - Rendered as Portal */}
+      {showOptimizeButton && (
+        <div
+          ref={floatingPanelRef}
+          style={{
+            position: 'fixed',
+            top: `${buttonPosition.top}px`,
+            left: `${buttonPosition.left}px`,
+            zIndex: 9999,
+          }}
+          className="bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-750 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 flex gap-3 items-center backdrop-blur-sm"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {/* Input Field */}
+          <input
+            type="text"
+            value={customPrompt}
+            onChange={(e) => {
+              setCustomPrompt(e.target.value);
+            }}
+            onFocus={(e) => {
+              e.preventDefault();
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+            placeholder="Tell AI what to do..."
+            className="flex-1 px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all shadow-sm hover:shadow-md"
+            autoFocus
+          />
+
+          {/* Optimize Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOptimizeSelection();
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            disabled={optimizationLoading}
+            className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 dark:disabled:from-slate-700 dark:disabled:to-slate-800 whitespace-nowrap"
+            title="Optimize this selected text with your custom instruction"
+          >
+            <Sparkles size={18} className={optimizationLoading ? 'animate-spin' : ''} />
+            {optimizationLoading ? 'Optimizing...' : 'Optimize'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

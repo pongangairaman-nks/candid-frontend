@@ -156,6 +156,23 @@ export const resumeApi = {
     }
   },
 
+  optimizeSection: async (selectedText: string, jobDescription: string, prompt: string): Promise<{ optimizedText: string }> => {
+    try {
+      const response = await apiClient.post<OptimizeResumeResponse>(
+        '/resume/optimize',
+        {
+          resumeText: selectedText,
+          jobDescription,
+          prompt,
+        }
+      );
+      return { optimizedText: response.data.optimizedLatex };
+    } catch (error) {
+      console.error('Error optimizing section:', error);
+      throw error;
+    }
+  },
+
   generatePdf: async (latexCode: string): Promise<{ pdfUrl: string }> => {
     try {
       const response = await fetch(`${API_BASE_URL}/compile-latex`, {
