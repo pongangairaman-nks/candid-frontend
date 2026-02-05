@@ -158,11 +158,22 @@ export const resumeApi = {
 
   generatePdf: async (latexCode: string): Promise<{ pdfUrl: string }> => {
     try {
-      const response = await apiClient.post<{ pdfUrl: string }>(
-        '/resume/generate-pdf',
-        { latexCode }
-      );
-      return response.data;
+      const response = await fetch(`${API_BASE_URL}/compile-latex`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ latexCode }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to compile LaTeX: ${response.statusText}`);
+      }
+
+      const pdfBlob = await response.blob();
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+
+      return { pdfUrl };
     } catch (error) {
       console.error('Error generating PDF:', error);
       throw error;
