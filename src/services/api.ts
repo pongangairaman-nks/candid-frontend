@@ -440,13 +440,28 @@ export interface JobApplication {
   updated_at?: string;
 }
 
-export const promptsApi = {
-  getDefaults: async (): Promise<{ resume_prompt: string; cover_letter_prompt: string }> => {
+export interface LLMConfig {
+  master_resume_prompt: string;
+  master_cover_letter_prompt: string;
+}
+
+export const llmConfigApi = {
+  getConfig: async (): Promise<LLMConfig> => {
     try {
-      const response = await apiClient.get('/prompts/defaults');
+      const response = await apiClient.get('/llm/config');
       return response.data;
     } catch (error) {
-      console.error('Error fetching default prompts:', error);
+      console.error('Error fetching LLM config:', error);
+      throw error;
+    }
+  },
+
+  updateConfig: async (data: Partial<LLMConfig>): Promise<LLMConfig> => {
+    try {
+      const response = await apiClient.put('/llm/config', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating LLM config:', error);
       throw error;
     }
   },

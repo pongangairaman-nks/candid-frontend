@@ -2,11 +2,11 @@
 
 import { FileText, AlertCircle, Save, Loader, CheckCircle, Info, Lightbulb } from 'lucide-react';
 import { useResumeStore } from '@/store/resumeStore';
-import { resumeApi } from '@/services/api';
+import { resumeApi, llmConfigApi } from '@/services/api';
 import { LLMConfigSection } from '@/components/LLMConfigSection';
 import { useState, useEffect, useRef, memo } from 'react';
 
-type TabType = 'llm' | 'template' | 'content';
+type TabType = 'llm' | 'template' | 'content' | 'prompts';
 
 // Memoized LLM Config Section to prevent unnecessary re-renders
 const MemoizedLLMConfigSection = memo(LLMConfigSection);
@@ -22,6 +22,10 @@ export default function ConfigurationPage() {
   const [masterCoverLetter, setMasterCoverLetter] = useState('');
   const [coverLetterSaved, setCoverLetterSaved] = useState(false);
   const [coverLetterLoading, setCoverLetterLoading] = useState(false);
+  const [masterResumePrompt, setMasterResumePrompt] = useState('');
+  const [masterCoverLetterPrompt, setMasterCoverLetterPrompt] = useState('');
+  const [promptsSaved, setPromptsSaved] = useState(false);
+  const [promptsLoading, setPromptsLoading] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
   const fetchAbortRef = useRef<AbortController | null>(null);
 
@@ -38,13 +42,23 @@ export default function ConfigurationPage() {
         fetchAbortRef.current = new AbortController();
 
         // Fetch all data in parallel
-        const [masterTemplateRes, masterCoverLetterRes] = await Promise.all([
+        const [masterTemplateRes, masterCoverLetterRes, llmConfigRes] = await Promise.all([
           resumeApi.getMasterTemplate(),
           resumeApi.getMasterCoverLetterTemplate(),
+          llmConfigApi.getConfig(),
         ]);
 
         setMasterDocument(masterTemplateRes.latexCode);
         setMasterCoverLetter(masterCoverLetterRes.latexCode);
+        
+        // Prefill master prompts if they exist
+        if (llmConfigRes.master_resume_prompt) {
+          setMasterResumePrompt(llmConfigRes.master_resume_prompt);
+        }
+        if (llmConfigRes.master_cover_letter_prompt) {
+          setMasterCoverLetterPrompt(llmConfigRes.master_cover_letter_prompt);
+        }
+        
         setError(null);
         setDataFetched(true);
       } catch (err) {
@@ -167,6 +181,16 @@ export default function ConfigurationPage() {
             }`}
           >
             LLM Configuration
+          </button>
+          <button
+            onClick={() => setActiveTab('prompts')}
+            className={`py-4 px-2 font-medium text-sm border-b-2 transition-colors ${
+              activeTab === 'prompts'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-300'
+            }`}
+          >
+            Master Prompts
           </button>
           <button
             onClick={() => setActiveTab('template')}
@@ -424,6 +448,153 @@ export default function ConfigurationPage() {
                   className="px-6 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 font-medium transition-colors"
                 >
                   Clear
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Master Prompts Tab */}
+        {activeTab === 'prompts' && (
+          <div className="space-y-6">
+            {/* Two Column Layout */}
+            <div className="grid grid-cols-2 gap-6">
+              {/* Master Resume Prompt Section */}
+              <div>
+                <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                  {/* Label */}
+                  <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      Master Resume Prompt
+                    </label>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      {masterResumePrompt.length > 0 && `${Math.round(masterResumePrompt.length / 1024)} KB`}
+                    </span>
+                  </div>
+
+                  {/* Textarea */}
+                  <textarea
+                    value={masterResumePrompt}
+                    onChange={(e) => {
+                      setMasterResumePrompt(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="Enter the default prompt for resume optimization. This will be used for all new jobs unless customized."
+                    className="h-120 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                  />
+                </div>
+
+                {/* Info Box */}
+                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
+                  <Info size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    This prompt will be prefilled for all new job applications and can be customized per job.
+                  </p>
+                </div>
+              </div>
+
+              {/* Master Cover Letter Prompt Section */}
+              <div>
+                <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                  {/* Label */}
+                  <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      Master Cover Letter Prompt
+                    </label>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      {masterCoverLetterPrompt.length > 0 && `${Math.round(masterCoverLetterPrompt.length / 1024)} KB`}
+                    </span>
+                  </div>
+
+                  {/* Textarea */}
+                  <textarea
+                    value={masterCoverLetterPrompt}
+                    onChange={(e) => {
+                      setMasterCoverLetterPrompt(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="Enter the default prompt for cover letter generation. This will be used for all new jobs unless customized."
+                    className="h-120 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                  />
+                </div>
+
+                {/* Info Box */}
+                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
+                  <Info size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    This prompt will be prefilled for all new job applications and can be customized per job.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex gap-3">
+                <AlertCircle size={18} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {promptsSaved && (
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex gap-3">
+                <CheckCircle size={18} className="text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-green-700 dark:text-green-300">Master prompts saved successfully!</p>
+              </div>
+            )}
+
+            {/* Save and Clear Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  if (!masterResumePrompt.trim() && !masterCoverLetterPrompt.trim()) {
+                    setError('Please enter at least one prompt');
+                    return;
+                  }
+
+                  setPromptsLoading(true);
+                  setError(null);
+
+                  try {
+                    await llmConfigApi.updateConfig({
+                      master_resume_prompt: masterResumePrompt || undefined,
+                      master_cover_letter_prompt: masterCoverLetterPrompt || undefined,
+                    });
+                    setPromptsSaved(true);
+                    setTimeout(() => setPromptsSaved(false), 3000);
+                  } catch (err) {
+                    const errorMessage = err instanceof Error ? err.message : 'Failed to save master prompts';
+                    setError(errorMessage);
+                  } finally {
+                    setPromptsLoading(false);
+                  }
+                }}
+                disabled={(!masterResumePrompt.trim() && !masterCoverLetterPrompt.trim()) || promptsLoading}
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
+              >
+                {promptsLoading ? (
+                  <>
+                    <Loader size={18} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} />
+                    Save Master Prompts
+                  </>
+                )}
+              </button>
+              {(masterResumePrompt || masterCoverLetterPrompt) && (
+                <button
+                  onClick={() => {
+                    setMasterResumePrompt('');
+                    setMasterCoverLetterPrompt('');
+                    setError(null);
+                  }}
+                  className="px-6 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 font-medium transition-colors"
+                >
+                  Clear All
                 </button>
               )}
             </div>

@@ -4,7 +4,7 @@ import { Sparkles, Eye, Download, TrendingUp, FileText, Mail, Loader } from 'luc
 import { toast } from 'react-toastify';
 import { useResumeStore } from '@/store/resumeStore';
 import { useState, useEffect, useRef } from 'react';
-import { resumeApi, jobApplicationApi, type ATSScoreResponse } from '@/services/api';
+import { resumeApi, jobApplicationApi, llmConfigApi, type ATSScoreResponse } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
 import { useParams } from 'next/navigation';
@@ -164,9 +164,17 @@ export default function ResumeGenerationPage() {
     const fetchData = async () => {
       try {
         setPageLoading(true);
-        // Fetch job application data
-        const jobApp = await jobApplicationApi.getById(parseInt(jobId));
-        if (jobApp.job_description) {
+        // Reset job description for new job
+        setJobDescription('');
+        
+        // Fetch job application data and master config in parallel
+        const [jobApp, llmConfig] = await Promise.all([
+          jobApplicationApi.getById(parseInt(jobId)),
+          llmConfigApi.getConfig(),
+        ]);
+        
+        // Only load job description if it was explicitly set (not empty/null)
+        if (jobApp.job_description && jobApp.job_description.trim()) {
           setJobDescription(jobApp.job_description);
         }
 
@@ -181,16 +189,18 @@ export default function ResumeGenerationPage() {
           resumeApi.getMasterCoverLetterTemplate(),
         ]);
 
+        // Always load master templates first
         if (resumeTemplate.latexCode) {
           setMasterDocument(resumeTemplate.latexCode);
           setResumeLatexCode(resumeTemplate.latexCode);
+          setLatexCode(resumeTemplate.latexCode);
         }
 
         if (coverLetterTemplate.latexCode) {
           setCoverLetterLatexCode(coverLetterTemplate.latexCode);
         }
 
-        // Load previously generated content if available
+        // Override with previously generated content if available
         if (jobApp.generated_resume_latex) {
           setResumeLatexCode(jobApp.generated_resume_latex);
           setLatexCode(jobApp.generated_resume_latex);
@@ -200,13 +210,16 @@ export default function ResumeGenerationPage() {
           setCoverLetterLatexCode(jobApp.generated_cover_letter_latex);
         }
 
-        // Load prompts from job application (includes defaults if not customized)
-        if (jobApp.resume_prompt) {
-          setResumePrompt(jobApp.resume_prompt);
-          setPrompt(jobApp.resume_prompt);
+        // Load prompts: use job-specific prompts if available, otherwise use master prompts from config
+        const resumePromptToUse = jobApp.resume_prompt || llmConfig.master_resume_prompt;
+        const coverLetterPromptToUse = jobApp.cover_letter_prompt || llmConfig.master_cover_letter_prompt;
+        
+        if (resumePromptToUse) {
+          setResumePrompt(resumePromptToUse);
+          setPrompt(resumePromptToUse);
         }
-        if (jobApp.cover_letter_prompt) {
-          setCoverLetterPrompt(jobApp.cover_letter_prompt);
+        if (coverLetterPromptToUse) {
+          setCoverLetterPrompt(coverLetterPromptToUse);
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
