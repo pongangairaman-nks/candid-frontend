@@ -2,13 +2,12 @@
 
 import { Plus, Edit2, Eye, Download, Trash2, Zap, Loader } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 import { jobApplicationApi, JobApplication } from '@/services/api';
 import { ResumeDetailsModal } from './ResumeDetailsModal';
 
-interface ResumeListingScreenProps {
-  onCreateResume: (jobApplicationId: number) => void;
-}
+type ResumeListingScreenProps = Record<string, never>;
 
 const STATUS_COLORS: Record<string, string> = {
   applied: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
@@ -20,7 +19,8 @@ const STATUS_COLORS: Record<string, string> = {
   withdrawn: 'bg-slate-100 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300',
 };
 
-export function ResumeListingScreen({ onCreateResume }: ResumeListingScreenProps) {
+export function ResumeListingScreen({}: ResumeListingScreenProps) {
+  const router = useRouter();
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -119,17 +119,6 @@ export function ResumeListingScreen({ onCreateResume }: ResumeListingScreenProps
     'withdrawn',
   ];
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <Loader size={32} className="animate-spin text-indigo-600 dark:text-indigo-400 mx-auto mb-4" />
-          <p className="text-slate-600 dark:text-slate-400">Loading job applications...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 p-6">
       {/* Header with Create Button */}
@@ -146,8 +135,15 @@ export function ResumeListingScreen({ onCreateResume }: ResumeListingScreenProps
         </button>
       </div>
 
-      {/* Table */}
-      {applications.length === 0 ? (
+      {/* Table - Conditionally Rendered */}
+      {isLoading ? (
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <Loader size={32} className="animate-spin text-indigo-600 dark:text-indigo-400 mx-auto mb-4" />
+            <p className="text-slate-600 dark:text-slate-400">Loading job applications...</p>
+          </div>
+        </div>
+      ) : applications.length === 0 ? (
         <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-12 text-center">
           <p className="text-slate-600 dark:text-slate-400 mb-4">No job applications yet</p>
           <button
@@ -165,6 +161,9 @@ export function ResumeListingScreen({ onCreateResume }: ResumeListingScreenProps
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
                   <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                    ID
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                     Position
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
@@ -176,7 +175,7 @@ export function ResumeListingScreen({ onCreateResume }: ResumeListingScreenProps
                   <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                     Applied Date
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                  <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                     Actions
                   </th>
                 </tr>
@@ -187,6 +186,9 @@ export function ResumeListingScreen({ onCreateResume }: ResumeListingScreenProps
                     key={app.id}
                     className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                   >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-slate-900 dark:text-white">{app.id}</div>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-medium text-slate-900 dark:text-white">{app.position}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -226,7 +228,7 @@ export function ResumeListingScreen({ onCreateResume }: ResumeListingScreenProps
                       {app.applied_date ? new Date(app.applied_date).toLocaleDateString() : '-'}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center gap-2">
                         <button
                           onClick={() => handleView(app)}
                           className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
@@ -242,7 +244,7 @@ export function ResumeListingScreen({ onCreateResume }: ResumeListingScreenProps
                           <Edit2 size={16} />
                         </button>
                         <button
-                          onClick={() => app.id && onCreateResume(app.id)}
+                          onClick={() => app.id && router.push(`/dashboard/jobs/resume/${app.id}`)}
                           className="p-2 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-lg transition-colors text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300"
                           title="Generate Resume with LLM"
                         >

@@ -424,12 +424,15 @@ export interface JobApplication {
   company_url?: string;
   job_url?: string;
   job_portal?: string;
+  job_description?: string;
   status: string;
   applied_date?: string;
   interview_date?: string;
   notes?: string;
   resume_pdf_url?: string;
   cover_letter_pdf_url?: string;
+  generated_resume_latex?: string;
+  generated_cover_letter_latex?: string;
   created_at?: string;
   updated_at?: string;
 }

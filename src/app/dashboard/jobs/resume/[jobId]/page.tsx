@@ -1,19 +1,21 @@
 'use client';
 
-import { ArrowLeft, Sparkles, Eye, Download, TrendingUp, FileText, Mail } from 'lucide-react';
+import { Sparkles, Eye, Download, TrendingUp, FileText, Mail } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useResumeStore } from '@/store/resumeStore';
 import { useState, useEffect } from 'react';
-import { resumeApi, type ATSScoreResponse } from '@/services/api';
+import { resumeApi, jobApplicationApi, type ATSScoreResponse } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
 import { DEFAULT_RESUME_PROMPT, DEFAULT_COVER_LETTER_PROMPT } from '@/constants/prompts';
-import { useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 
 type TabType = 'resume' | 'coverLetter';
 
 export default function ResumeGenerationPage() {
-  const router = useRouter();
+  const params = useParams();
+  const jobId = params.jobId as string;
+
   const {
     masterDocument,
     jobDescription,
@@ -36,12 +38,20 @@ export default function ResumeGenerationPage() {
   const [showATSModal, setShowATSModal] = useState(false);
   const [atsLoading, setAtsLoading] = useState(false);
   const [atsData, setAtsData] = useState<ATSScoreResponse | null>(null);
+  const [pageLoading, setPageLoading] = useState(true);
 
-  // Fetch master templates on page load
+  // Fetch job application data and master templates on page load
   useEffect(() => {
-    const fetchMasterTemplates = async () => {
+    const fetchData = async () => {
       try {
-        // Fetch both master resume and cover letter templates in parallel
+        setPageLoading(true);
+        // Fetch job application data
+        const jobApp = await jobApplicationApi.getById(parseInt(jobId));
+        if (jobApp.job_description) {
+          setJobDescription(jobApp.job_description);
+        }
+
+        // Fetch master templates
         const [resumeTemplate, coverLetterTemplate] = await Promise.all([
           resumeApi.getMasterTemplate(),
           resumeApi.getMasterCoverLetterTemplate(),
@@ -55,13 +65,24 @@ export default function ResumeGenerationPage() {
         if (coverLetterTemplate.latexCode) {
           setCoverLetterLatexCode(coverLetterTemplate.latexCode);
         }
-      } catch {
-        console.log('Failed to fetch master templates');
+
+        // Load previously generated content if available
+        if (jobApp.generated_resume_latex) {
+          setResumeLatexCode(jobApp.generated_resume_latex);
+          setLatexCode(jobApp.generated_resume_latex);
+        }
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+        toast.error('Failed to load job application data');
+      } finally {
+        setPageLoading(false);
       }
     };
 
-    fetchMasterTemplates();
-  }, [setMasterDocument]);
+    if (jobId) {
+      fetchData();
+    }
+  }, [jobId, setMasterDocument, setJobDescription, setLatexCode]);
 
   // Handle tab switching - update prompt and LaTeX code based on active tab
   useEffect(() => {
@@ -76,7 +97,7 @@ export default function ResumeGenerationPage() {
 
   const handleOptimize = async () => {
     if (!masterDocument || !jobDescription) {
-      toast.error('Please fill in all required fields');
+      toast.error('Please provide both master document and job description');
       return;
     }
 
@@ -87,19 +108,28 @@ export default function ResumeGenerationPage() {
         jobDescription,
       });
 
-      if (activeTab === 'resume') {
-        setResumeLatexCode(response.optimizedLatex);
-        setLatexCode(response.optimizedLatex);
-      } else {
-        setCoverLetterLatexCode(response.optimizedLatex);
-        setLatexCode(response.optimizedLatex);
-      }
+      const optimizedCode = response.optimizedLatex;
+      setLatexCode(optimizedCode);
 
-      toast.success(`${activeTab === 'resume' ? 'Resume' : 'Cover Letter'} optimized successfully!`);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to optimize';
-      setError(errorMessage);
+      if (activeTab === 'resume') {
+        setResumeLatexCode(optimizedCode);
+        // Save to job application
+        await jobApplicationApi.update(parseInt(jobId), {
+          generated_resume_latex: optimizedCode,
+        });
+        toast.success('Resume optimized and saved successfully!');
+      } else {
+        setCoverLetterLatexCode(optimizedCode);
+        // Save to job application
+        await jobApplicationApi.update(parseInt(jobId), {
+          generated_cover_letter_latex: optimizedCode,
+        });
+        toast.success('Cover letter generated and saved successfully!');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to optimize';
       toast.error(errorMessage);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -150,7 +180,7 @@ export default function ResumeGenerationPage() {
 
   const handleCheckATSScore = async () => {
     if (!latexCode || !jobDescription) {
-      toast.error('Please fill in all required fields');
+      toast.error('Please generate resume and provide job description');
       return;
     }
 
@@ -197,8 +227,16 @@ export default function ResumeGenerationPage() {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col p-6 md:p-8 overflow-auto">
+      {/* Content - Conditionally Rendered */}
+      {pageLoading ? (
+        <div className="flex-1 flex items-center justify-center p-6 md:p-8">
+          <div className="text-center">
+            <Sparkles size={32} className="animate-spin text-indigo-600 dark:text-indigo-400 mx-auto mb-4" />
+            <p className="text-slate-600 dark:text-slate-400">Preparing resume and cover letter automation...</p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col p-6 md:p-8 overflow-auto">
         <div className="grid grid-cols-2 gap-8 h-full">
           {/* Left Section - Job Description and Prompt */}
           <div className="flex flex-col space-y-6">
@@ -229,27 +267,24 @@ export default function ResumeGenerationPage() {
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Enter the optimization prompt..."
                 className="flex-1 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
               />
             </div>
 
             {/* Optimize Button */}
-            <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-              <button
-                onClick={handleOptimize}
-                disabled={!masterDocument || !jobDescription || isLoading}
-                className="w-full flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium transition-colors duration-200 dark:disabled:bg-slate-700"
-              >
-                <Sparkles size={18} className={isLoading ? 'animate-spin' : ''} />
-                {isLoading ? `Optimizing ${activeTab === 'resume' ? 'Resume' : 'Cover Letter'}...` : `Optimize ${activeTab === 'resume' ? 'Resume' : 'Cover Letter'} with AI`}
-              </button>
-            </div>
+            <button
+              onClick={handleOptimize}
+              disabled={!masterDocument || !jobDescription || isLoading}
+              className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium transition-colors duration-200 dark:disabled:bg-slate-700"
+            >
+              <Sparkles size={18} className={isLoading ? 'animate-spin' : ''} />
+              {isLoading ? `Optimizing ${activeTab === 'resume' ? 'Resume' : 'Cover Letter'}...` : `Optimize ${activeTab === 'resume' ? 'Resume' : 'Cover Letter'} with AI`}
+            </button>
           </div>
 
           {/* Right Section - LaTeX Code and Actions */}
           <div className="flex flex-col space-y-6">
-            {/* LaTeX Code */}
+            {/* LaTeX Code Display */}
             <div className="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
               <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <div>
@@ -265,45 +300,44 @@ export default function ResumeGenerationPage() {
               <textarea
                 value={latexCode}
                 onChange={(e) => setLatexCode(e.target.value)}
-                placeholder="Your LaTeX code will appear here..."
+                placeholder={`LaTeX code will appear here after optimization or paste your saved ${activeTab === 'resume' ? 'resume' : 'cover letter'} template...`}
                 className="flex-1 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
               />
             </div>
 
             {/* Action Buttons */}
-            <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-              <div className="flex gap-3">
+            <div className="flex gap-3">
+              <button
+                onClick={handlePreview}
+                disabled={!latexCode || pdfLoading || isLoading}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium transition-colors duration-200 dark:disabled:bg-slate-700"
+              >
+                <Eye size={18} />
+                Preview
+              </button>
+              <button
+                onClick={handleDownload}
+                disabled={!latexCode || pdfLoading || isLoading}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium transition-colors duration-200 dark:disabled:bg-slate-700"
+              >
+                <Download size={18} />
+                Download
+              </button>
+              {activeTab === 'resume' && (
                 <button
-                  onClick={handlePreview}
-                  disabled={!latexCode || pdfLoading || isLoading}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium transition-colors duration-200 dark:disabled:bg-slate-700"
+                  onClick={handleCheckATSScore}
+                  disabled={!latexCode || !jobDescription || atsLoading || isLoading}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium transition-colors duration-200 dark:disabled:bg-slate-700"
                 >
-                  <Eye size={18} />
-                  Preview
+                  <TrendingUp size={18} />
+                  {atsLoading ? 'Checking ATS Score...' : 'Check ATS Score'}
                 </button>
-                <button
-                  onClick={handleDownload}
-                  disabled={!latexCode || pdfLoading || isLoading}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium transition-colors duration-200 dark:disabled:bg-slate-700"
-                >
-                  <Download size={18} />
-                  Download
-                </button>
-                {activeTab === 'resume' && (
-                  <button
-                    onClick={handleCheckATSScore}
-                    disabled={!latexCode || !jobDescription || atsLoading || isLoading}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium transition-colors duration-200 dark:disabled:bg-slate-700"
-                  >
-                    <TrendingUp size={18} />
-                    {atsLoading ? 'Checking ATS Score...' : 'Check ATS Score'}
-                  </button>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Preview Modal */}
       {showPreview && (

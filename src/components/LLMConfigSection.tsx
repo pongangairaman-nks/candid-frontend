@@ -60,8 +60,6 @@ export const LLMConfigSection = () => {
   const [generatorApiKey, setGeneratorApiKey] = useState('');
   const [generatorApiKeyVisible, setGeneratorApiKeyVisible] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'llm' | 'template'>('llm');
-
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');

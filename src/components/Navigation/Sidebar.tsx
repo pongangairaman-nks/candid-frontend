@@ -24,7 +24,10 @@ export const NavigationSidebar = () => {
     },
   ];
 
-  const isActive = (href: string) => pathname === href;
+  const isActive = (href: string) => {
+    // Exact match or nested route match
+    return pathname === href || pathname.startsWith(href + '/');
+  };
 
   return (
     <>
