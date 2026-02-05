@@ -441,8 +441,9 @@ export interface JobApplication {
 }
 
 export interface LLMConfig {
-  master_resume_prompt: string;
-  master_cover_letter_prompt: string;
+  master_content?: string;
+  master_resume_prompt?: string;
+  master_cover_letter_prompt?: string;
 }
 
 export const llmConfigApi = {

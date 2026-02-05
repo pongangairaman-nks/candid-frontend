@@ -51,6 +51,11 @@ export default function ConfigurationPage() {
         setMasterDocument(masterTemplateRes.latexCode);
         setMasterCoverLetter(masterCoverLetterRes.latexCode);
         
+        // Prefill master content if it exists
+        if (llmConfigRes.master_content) {
+          setMasterContent(llmConfigRes.master_content);
+        }
+        
         // Prefill master prompts if they exist
         if (llmConfigRes.master_resume_prompt) {
           setMasterResumePrompt(llmConfigRes.master_resume_prompt);

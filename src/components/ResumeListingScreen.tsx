@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, Edit2, Eye, Download, Trash2, Zap, Loader } from 'lucide-react';
+import { Plus, Edit2, Eye, Download, Trash2, Zap, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
@@ -28,6 +28,8 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create');
   const [selectedApplication, setSelectedApplication] = useState<JobApplication | undefined>();
   const [updatingStatusId, setUpdatingStatusId] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
     fetchApplications();
@@ -150,6 +152,25 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
     'withdrawn',
   ];
 
+  // Pagination calculations
+  const totalPages = Math.ceil(applications.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedApplications = applications.slice(startIndex, endIndex);
+
+  const handlePreviousPage = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  };
+
+  const handleRowsPerPageChange = (newRowsPerPage: number) => {
+    setRowsPerPage(newRowsPerPage);
+    setCurrentPage(1); // Reset to first page when changing rows per page
+  };
+
   return (
     <div className="space-y-6 p-6">
       {/* Header with Create Button */}
@@ -212,7 +233,7 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
                 </tr>
               </thead>
               <tbody>
-                {applications.map((app) => (
+                {paginatedApplications.map((app) => (
                   <tr
                     key={app.id}
                     className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
@@ -294,6 +315,70 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 flex items-center justify-between">
+            {/* Rows Per Page Dropdown */}
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-slate-600 dark:text-slate-400">Rows per page:</label>
+              <select
+                value={rowsPerPage}
+                onChange={(e) => handleRowsPerPageChange(Number(e.target.value))}
+                className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={15}>15</option>
+                <option value={20}>20</option>
+              </select>
+            </div>
+
+            {/* Navigation Controls and Page Info */}
+            <div className="flex items-center gap-4">
+              {/* Page Info */}
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                Showing {startIndex + 1} to {Math.min(endIndex, applications.length)} of {applications.length}
+              </div>
+
+              {/* Navigation Controls */}
+              <div className="flex items-center gap-2">
+              <button
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+                className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Previous page"
+              >
+                <ChevronLeft size={18} className="text-slate-600 dark:text-slate-400" />
+              </button>
+
+              {/* Page Numbers */}
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      currentPage === page
+                        ? 'bg-indigo-600 text-white'
+                        : 'border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Next page"
+              >
+                <ChevronRight size={18} className="text-slate-600 dark:text-slate-400" />
+              </button>
+            </div>
+            </div>
           </div>
         </div>
       )}
