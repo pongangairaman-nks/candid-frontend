@@ -8,6 +8,7 @@ interface StatusDropdownProps {
   onChange: (value: string) => void;
   statusColors: Record<string, string>;
   statusOptions: string[];
+  isLoading?: boolean;
 }
 
 interface Position {
@@ -27,15 +28,23 @@ export const StatusDropdown = ({
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+      const target = event.target as HTMLElement;
+      
+      // Don't close if clicking on button or dropdown menu
+      if (buttonRef.current?.contains(target)) return;
+      
+      const dropdownMenu = document.querySelector('[data-dropdown-menu]');
+      if (dropdownMenu?.contains(target)) return;
+      
+      setIsOpen(false);
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && buttonRef.current) {
@@ -54,6 +63,7 @@ export const StatusDropdown = ({
       <div className="relative" ref={dropdownRef}>
         <button
           ref={buttonRef}
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
           className={`flex items-center justify-between gap-2 px-3 py-1 rounded-full text-xs font-medium border-0 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer transition-all ${
             statusColors[value] || statusColors['applied']
@@ -66,6 +76,7 @@ export const StatusDropdown = ({
 
       {isOpen && (
         <div
+          data-dropdown-menu
           className="fixed bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-50 overflow-hidden w-48"
           style={{
             top: `${position.top}px`,
@@ -75,7 +86,9 @@ export const StatusDropdown = ({
           {statusOptions.map((status) => (
             <button
               key={status}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('Updating status to:', status);
                 onChange(status);
                 setIsOpen(false);
               }}

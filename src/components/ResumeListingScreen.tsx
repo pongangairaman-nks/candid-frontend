@@ -27,6 +27,7 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create');
   const [selectedApplication, setSelectedApplication] = useState<JobApplication | undefined>();
+  const [updatingStatusId, setUpdatingStatusId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchApplications();
@@ -82,11 +83,34 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
 
   const handleStatusChange = async (appId: number, newStatus: string) => {
     try {
+      console.log('Updating status for app ID:', appId, 'to:', newStatus);
+      
+      // Optimistic update - update UI immediately
+      setApplications(applications.map((app) => 
+        app.id === appId ? { ...app, status: newStatus } : app
+      ));
+      setUpdatingStatusId(appId);
+      
+      // Update backend
       const updatedApp = await jobApplicationApi.updateStatus(appId, newStatus);
+      
+      // Confirm with backend response
       setApplications(applications.map((app) => (app.id === updatedApp.id ? updatedApp : app)));
       toast.success('Status updated successfully');
-    } catch {
+    } catch (error) {
+      console.error('Status update error:', error);
+      
+      // Revert optimistic update on error
+      const originalApp = applications.find((app) => app.id === appId);
+      if (originalApp) {
+        setApplications(applications.map((app) => 
+          app.id === appId ? originalApp : app
+        ));
+      }
+      
       toast.error('Failed to update status');
+    } finally {
+      setUpdatingStatusId(null);
     }
   };
 
