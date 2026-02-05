@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, AlertCircle, CheckCircle } from 'lucide-react';
+import { Save, AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import { CustomSelect } from './CustomSelect';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -212,7 +212,7 @@ export const LLMConfigSection = () => {
       {/* Tab Content */}
       {isFetching ? (
         <div className="text-center py-8">
-          <div className="inline-block animate-spin text-2xl">⏳</div>
+          <Loader size={32} className="animate-spin text-indigo-600 dark:text-indigo-400 mx-auto mb-2" />
           <p className="text-slate-600 dark:text-slate-400 mt-2">Loading configuration...</p>
         </div>
       ) : (

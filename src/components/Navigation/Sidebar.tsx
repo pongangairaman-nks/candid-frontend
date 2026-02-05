@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, Settings, LogOut, Menu, X } from 'lucide-react';
+import { FileText, Settings, LogOut, Menu, X, Zap } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useState } from 'react';
 import Link from 'next/link';
@@ -44,8 +44,15 @@ export const NavigationSidebar = () => {
       >
         {/* Logo */}
         <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Resume AI</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">ATS Optimizer</p>
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-lg bg-linear-to-br from-indigo-600 to-indigo-700 flex items-center justify-center shrink-0 mt-1">
+              <Zap size={18} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white">Resume AI</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400">ATS Optimizer</p>
+            </div>
+          </div>
         </div>
 
         {/* Navigation Items */}
