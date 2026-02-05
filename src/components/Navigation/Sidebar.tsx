@@ -75,7 +75,7 @@ export const NavigationSidebar = () => {
         <div className="p-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
           <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
             <p className="text-xs text-slate-600 dark:text-slate-400">Logged in as</p>
-            <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{user?.name}</p>
+            <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{user?.firstName}</p>
             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
           </div>
           <button

@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, AlertCircle, Save, Loader, CheckCircle } from 'lucide-react';
+import { FileText, AlertCircle, Save, Loader, CheckCircle, Info, Lightbulb } from 'lucide-react';
 import { useResumeStore } from '@/store/resumeStore';
 import { resumeApi } from '@/services/api';
 import { LLMConfigSection } from '@/components/LLMConfigSection';
@@ -210,9 +210,9 @@ export default function ConfigurationPage() {
                 {/* <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Master Resume Template</h2> */}
                 <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
                   {/* Label */}
-                  <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      MASTER RESUME TEMPLATE (LaTeX)
+                  <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      Master Resume Template
                     </label>
                     <span className="text-xs text-slate-500 dark:text-slate-400">
                       {masterDocument.length > 0 && `${Math.round(masterDocument.length / 1024)} KB`}
@@ -232,9 +232,10 @@ export default function ConfigurationPage() {
                 </div>
 
                 {/* Info Box */}
-                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
+                  <Info size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                   <p className="text-sm text-blue-700 dark:text-blue-300">
-                    ℹ️ Paste your complete LaTeX resume template here. This will be prefilled in the Resume Creation section and can be edited after optimization.
+                    Paste your complete LaTeX resume template here. This will be prefilled in the Resume Creation section and can be edited after optimization.
                   </p>
                 </div>
               </div>
@@ -244,9 +245,9 @@ export default function ConfigurationPage() {
                 {/* <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Master Cover Letter Template</h2> */}
                 <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
                   {/* Label */}
-                  <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      MASTER COVER LETTER TEMPLATE (LaTeX)
+                  <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      Master Cover Letter Template
                     </label>
                     <span className="text-xs text-slate-500 dark:text-slate-400">
                       {masterCoverLetter.length > 0 && `${Math.round(masterCoverLetter.length / 1024)} KB`}
@@ -266,9 +267,10 @@ export default function ConfigurationPage() {
                 </div>
 
                 {/* Info Box */}
-                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
+                  <Info size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                   <p className="text-sm text-blue-700 dark:text-blue-300">
-                    ℹ️ Paste your complete LaTeX cover letter template here. This will be prefilled in the Cover Letter Creation section and can be edited after optimization.
+                    Paste your complete LaTeX cover letter template here. This will be prefilled in the Cover Letter Creation section and can be edited after optimization.
                   </p>
                 </div>
               </div>
@@ -346,9 +348,9 @@ export default function ConfigurationPage() {
               {/* <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Master Content</h2> */}
               <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
                 {/* Label */}
-                <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    YOUR SKILLS & EXPERIENCE REPOSITORY
+                <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                  <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    Master Content
                   </label>
                   <span className="text-xs text-slate-500 dark:text-slate-400">
                     {masterContent.length > 0 && `${masterContent.length} / 50000 characters`}
@@ -370,9 +372,10 @@ export default function ConfigurationPage() {
               </div>
 
               {/* Info Box */}
-              <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
+                <Lightbulb size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  💡 <strong>Tip:</strong> Include skills you haven&apos;t used recently, side projects, certifications, and detailed achievements with metrics. This helps the LLM find better matches for job descriptions.
+                  <strong>Tip:</strong> Include skills you haven&apos;t used recently, side projects, certifications, and detailed achievements with metrics. This helps the LLM find better matches for job descriptions.
                 </p>
               </div>
             </div>
