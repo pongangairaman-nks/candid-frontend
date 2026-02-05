@@ -67,7 +67,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Resume AI</h1>
+          <h1 className="text-4xl font-bold text-white mb-2">Candid</h1>
           <p className="text-slate-400">Set your new password</p>
         </div>
 

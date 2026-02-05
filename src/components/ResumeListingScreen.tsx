@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 import { jobApplicationApi, JobApplication } from '@/services/api';
 import { ResumeDetailsModal } from './ResumeDetailsModal';
+import { StatusDropdown } from './StatusDropdown';
 
 type ResumeListingScreenProps = Record<string, never>;
 
@@ -210,19 +211,12 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <select
+                      <StatusDropdown
                         value={app.status}
-                        onChange={(e) => app.id && handleStatusChange(app.id, e.target.value)}
-                        className={`px-3 py-1 rounded-full text-xs font-medium border-0 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer ${
-                          STATUS_COLORS[app.status] || STATUS_COLORS['applied']
-                        }`}
-                      >
-                        {STATUS_OPTIONS.map((status) => (
-                          <option key={status} value={status}>
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(status) => app.id && handleStatusChange(app.id, status)}
+                        statusColors={STATUS_COLORS}
+                        statusOptions={STATUS_OPTIONS}
+                      />
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
                       {app.applied_date ? new Date(app.applied_date).toLocaleDateString() : '-'}
