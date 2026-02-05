@@ -30,3 +30,12 @@ OUTPUT REQUIREMENT:
 
 Return ONLY the full updated LaTeX resume code with improved content. Do not include explanations, comments, or additional text outside the LaTeX document.
 `;
+
+export const DEFAULT_COVER_LETTER_PROMPT = `You are an expert cover letter writer. Based on the job description and the candidate's master content, write a compelling cover letter that:
+1. Addresses the specific requirements mentioned in the job description
+2. Highlights relevant skills and experiences from the master content
+3. Shows genuine interest in the position and company
+4. Uses a professional yet personable tone
+5. Is concise and impactful (typically 3-4 paragraphs)
+
+Format the output as a LaTeX cover letter template.`;

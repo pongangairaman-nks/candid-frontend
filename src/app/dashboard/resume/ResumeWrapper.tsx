@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ResumeListingScreen } from '@/components/ResumeListingScreen';
-import ResumeGenerationPage from './page';
+import ResumeGenerationPage from './generate/page';
 
 export function ResumeWrapper() {
   const [showListing, setShowListing] = useState(true);

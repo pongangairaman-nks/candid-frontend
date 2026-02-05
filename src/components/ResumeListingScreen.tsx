@@ -231,13 +231,6 @@ export function ResumeListingScreen({ onCreateResume }: ResumeListingScreenProps
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => app.id && onCreateResume(app.id)}
-                          className="p-2 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-lg transition-colors text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300"
-                          title="Generate Resume with LLM"
-                        >
-                          <Zap size={16} />
-                        </button>
-                        <button
                           onClick={() => handleView(app)}
                           className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                           title="View Details"
@@ -250,6 +243,13 @@ export function ResumeListingScreen({ onCreateResume }: ResumeListingScreenProps
                           title="Edit"
                         >
                           <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => app.id && onCreateResume(app.id)}
+                          className="p-2 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-lg transition-colors text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300"
+                          title="Generate Resume with LLM"
+                        >
+                          <Zap size={16} />
                         </button>
                         <button
                           onClick={() => handleDownloadResume(app.resume_pdf_url)}

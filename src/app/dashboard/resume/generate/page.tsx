@@ -7,19 +7,10 @@ import { useState, useEffect } from 'react';
 import { resumeApi, type ATSScoreResponse } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
-import { DEFAULT_RESUME_PROMPT } from '@/constants/prompts';
+import { DEFAULT_RESUME_PROMPT, DEFAULT_COVER_LETTER_PROMPT } from '@/constants/prompts';
 import { useRouter } from 'next/navigation';
 
 type TabType = 'resume' | 'coverLetter';
-
-const DEFAULT_COVER_LETTER_PROMPT = `You are an expert cover letter writer. Based on the job description and the candidate's master content, write a compelling cover letter that:
-1. Addresses the specific requirements mentioned in the job description
-2. Highlights relevant skills and experiences from the master content
-3. Shows genuine interest in the position and company
-4. Uses a professional yet personable tone
-5. Is concise and impactful (typically 3-4 paragraphs)
-
-Format the output as a LaTeX cover letter template.`;
 
 export default function ResumeGenerationPage() {
   const router = useRouter();
