@@ -108,13 +108,18 @@ export const resumeApi = {
 
   getMasterTemplate: async (): Promise<{ latexCode: string }> => {
     try {
-      const response = await apiClient.get<{ data: { latexCode: string } }>(
+      const response = await apiClient.get<{ status: string; data: { latexCode: string } }>(
         '/resume/master-template'
       );
       return { latexCode: response.data.data.latexCode };
-    } catch (error) {
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status: number } };
+      if (axiosError.response?.status === 404) {
+        console.log('No master template found, returning empty');
+        return { latexCode: '' };
+      }
       console.error('Error fetching master template:', error);
-      throw error;
+      return { latexCode: '' };
     }
   },
 
@@ -133,11 +138,16 @@ export const resumeApi = {
 
   getMasterCoverLetterTemplate: async (): Promise<{ latexCode: string }> => {
     try {
-      const response = await apiClient.get<{ data: { latexCode: string } }>(
+      const response = await apiClient.get<{ status: string; data: { latexCode: string } }>(
         '/resume/master-cover-letter-template'
       );
       return { latexCode: response.data.data.latexCode };
     } catch (error: unknown) {
+      const axiosError = error as { response?: { status: number } };
+      if (axiosError.response?.status === 404) {
+        console.log('No master cover letter template found, returning empty');
+        return { latexCode: '' };
+      }
       console.error('Error fetching master cover letter template:', error);
       return { latexCode: '' };
     }
@@ -150,9 +160,11 @@ export const resumeApi = {
         data
       );
       return response.data;
-    } catch (error) {
-      console.error('Error optimizing resume:', error);
-      throw error;
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      const errorMessage = axiosError.response?.data?.message || 'Failed to optimize resume';
+      const customError = new Error(errorMessage);
+      throw customError;
     }
   },
 
@@ -167,9 +179,11 @@ export const resumeApi = {
         }
       );
       return { optimizedText: response.data.optimizedLatex };
-    } catch (error) {
-      console.error('Error optimizing section:', error);
-      throw error;
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      const errorMessage = axiosError.response?.data?.message || 'Failed to optimize section';
+      const customError = new Error(errorMessage);
+      throw customError;
     }
   },
 

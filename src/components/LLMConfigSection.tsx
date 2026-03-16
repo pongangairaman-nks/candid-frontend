@@ -37,9 +37,14 @@ interface AvailableModels {
 
 const AVAILABLE_MODELS: AvailableModels = {
   claude: [
-    { id: 'claude-opus-4-1-20250805', name: 'Claude Opus 4.1 (Recommended)', provider: 'claude' },
-    { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', provider: 'claude' },
-    { id: 'claude-haiku-4-20250805', name: 'Claude Haiku 4', provider: 'claude' },
+    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Cheapest)', provider: 'claude' },
+    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', provider: 'claude' },
+    { id: 'claude-opus-4-1-20250805', name: 'Claude Opus 4.1', provider: 'claude' },
+  ],
+  openai: [
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Cheapest)', provider: 'openai' },
+    { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
+    { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'openai' },
   ],
   gemini: [
     { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Free)', provider: 'gemini' },
@@ -50,13 +55,13 @@ const AVAILABLE_MODELS: AvailableModels = {
 };
 
 export const LLMConfigSection = () => {
-  const [analyzerProvider, setAnalyzerProvider] = useState('gemini');
-  const [analyzerModel, setAnalyzerModel] = useState('gemini-2.5-flash');
+  const [analyzerProvider, setAnalyzerProvider] = useState('claude');
+  const [analyzerModel, setAnalyzerModel] = useState('claude-3-5-haiku-20241022');
   const [analyzerApiKey, setAnalyzerApiKey] = useState('');
   const [analyzerApiKeyVisible, setAnalyzerApiKeyVisible] = useState(false);
 
-  const [generatorProvider, setGeneratorProvider] = useState('claude');
-  const [generatorModel, setGeneratorModel] = useState('claude-opus-4-1-20250805');
+  const [generatorProvider, setGeneratorProvider] = useState('openai');
+  const [generatorModel, setGeneratorModel] = useState('gpt-4o-mini');
   const [generatorApiKey, setGeneratorApiKey] = useState('');
   const [generatorApiKeyVisible, setGeneratorApiKeyVisible] = useState(false);
 
@@ -229,70 +234,10 @@ export const LLMConfigSection = () => {
                 </div>
               </div>
 
-              <div className="p-6 bg-linear-to-br from-blue-50 to-blue-50/50 dark:from-blue-900/20 dark:to-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800">
-                <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">1</span>
-                  Job Description Analyzer
-                </h3>
-
-                <div className="space-y-4">
-                  <CustomSelect
-                    label="Provider"
-                    options={[
-                      { id: 'claude', name: 'Claude (Anthropic)', provider: 'claude' },
-                      { id: 'gemini', name: 'Gemini (Google)', provider: 'gemini' },
-                    ]}
-                    value={analyzerProvider}
-                    onChange={(newProvider) => {
-                      setAnalyzerProvider(newProvider);
-                      setAnalyzerModel(AVAILABLE_MODELS[newProvider]?.[0]?.id || '');
-                    }}
-                    description="Choose the LLM provider for analyzing job descriptions"
-                  />
-
-                  <CustomSelect
-                    label="Model"
-                    options={analyzerModels}
-                    value={analyzerModel}
-                    onChange={(newModel) => setAnalyzerModel(newModel)}
-                    description={
-                      analyzerProvider === 'claude'
-                        ? 'Opus 4.1 recommended for best analysis quality'
-                        : 'Flash models are free tier with daily limits'
-                    }
-                  />
-
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      API Key
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={analyzerApiKeyVisible ? 'text' : 'password'}
-                        value={analyzerApiKey}
-                        onChange={(e) => {
-                          setAnalyzerApiKey(e.target.value);
-                          setErrorMessage('');
-                        }}
-                        placeholder={`Enter your ${analyzerProvider} API key`}
-                        className="w-full px-4 py-3 pr-12 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setAnalyzerApiKeyVisible(!analyzerApiKeyVisible)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm font-medium"
-                      >
-                        {analyzerApiKeyVisible ? '👁️' : '👁️‍🗨️'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               <div className="p-6 bg-linear-to-br from-indigo-50 to-indigo-50/50 dark:from-indigo-900/20 dark:to-indigo-900/10 rounded-lg border border-indigo-200 dark:border-indigo-800">
                 <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold">2</span>
-                  Resume Generator
+                  <span className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold">1</span>
+                  ATS Friendly Resume Optimizer Model
                 </h3>
 
                 <div className="space-y-4">
@@ -300,6 +245,7 @@ export const LLMConfigSection = () => {
                     label="Provider"
                     options={[
                       { id: 'claude', name: 'Claude (Anthropic)', provider: 'claude' },
+                      { id: 'openai', name: 'OpenAI', provider: 'openai' },
                       { id: 'gemini', name: 'Gemini (Google)', provider: 'gemini' },
                     ]}
                     value={generatorProvider}
@@ -343,6 +289,67 @@ export const LLMConfigSection = () => {
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm font-medium"
                       >
                         {generatorApiKeyVisible ? '👁️' : '👁️‍🗨️'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 bg-linear-to-br from-blue-50 to-blue-50/50 dark:from-blue-900/20 dark:to-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800">
+                <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">2</span>
+                  ATS Score Analyzer Model
+                </h3>
+
+                <div className="space-y-4">
+                  <CustomSelect
+                    label="Provider"
+                    options={[
+                      { id: 'claude', name: 'Claude (Anthropic)', provider: 'claude' },
+                      { id: 'openai', name: 'OpenAI', provider: 'openai' },
+                      { id: 'gemini', name: 'Gemini (Google)', provider: 'gemini' },
+                    ]}
+                    value={analyzerProvider}
+                    onChange={(newProvider) => {
+                      setAnalyzerProvider(newProvider);
+                      setAnalyzerModel(AVAILABLE_MODELS[newProvider]?.[0]?.id || '');
+                    }}
+                    description="Choose the LLM provider for analyzing job descriptions"
+                  />
+
+                  <CustomSelect
+                    label="Model"
+                    options={analyzerModels}
+                    value={analyzerModel}
+                    onChange={(newModel) => setAnalyzerModel(newModel)}
+                    description={
+                      analyzerProvider === 'claude'
+                        ? 'Opus 4.1 recommended for best analysis quality'
+                        : 'Flash models are free tier with daily limits'
+                    }
+                  />
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      API Key
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={analyzerApiKeyVisible ? 'text' : 'password'}
+                        value={analyzerApiKey}
+                        onChange={(e) => {
+                          setAnalyzerApiKey(e.target.value);
+                          setErrorMessage('');
+                        }}
+                        placeholder={`Enter your ${analyzerProvider} API key`}
+                        className="w-full px-4 py-3 pr-12 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setAnalyzerApiKeyVisible(!analyzerApiKeyVisible)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm font-medium"
+                      >
+                        {analyzerApiKeyVisible ? '👁️' : '👁️‍🗨️'}
                       </button>
                     </div>
                   </div>

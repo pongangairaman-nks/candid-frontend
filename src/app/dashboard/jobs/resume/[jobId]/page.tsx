@@ -322,7 +322,22 @@ export default function ResumeGenerationPage() {
         toast.success('Cover letter generated and saved successfully!');
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to optimize';
+      let errorMessage = 'Failed to optimize resume section';
+      
+      // Extract error message from axios error response
+      if (error instanceof Error) {
+        if ('response' in error && error.response && typeof error.response === 'object') {
+          const response = error.response as { data?: { message?: string } };
+          if (response.data?.message) {
+            errorMessage = response.data.message;
+          } else {
+            errorMessage = error.message;
+          }
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast.error(errorMessage);
       setError(errorMessage);
     } finally {
