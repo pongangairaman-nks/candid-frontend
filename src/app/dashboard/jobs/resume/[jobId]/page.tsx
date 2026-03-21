@@ -291,6 +291,10 @@ export default function ResumeGenerationPage() {
   }, [activeTab, resumeLatexCode, coverLetterLatexCode, resumePrompt, coverLetterPrompt, setLatexCode]);
 
   const handleOptimize = async () => {
+    console.log('🔍 [DEBUG] handleOptimize started');
+    console.log('🔍 [DEBUG] masterDocument exists:', !!masterDocument);
+    console.log('🔍 [DEBUG] jobDescription exists:', !!jobDescription);
+    
     if (!masterDocument || !jobDescription) {
       toast.error('Please provide both master document and job description');
       return;
@@ -298,30 +302,46 @@ export default function ResumeGenerationPage() {
 
     setIsLoading(true);
     try {
+      console.log('🔍 [DEBUG] Calling resumeApi.optimizeResume...');
       const response = await resumeApi.optimizeResume({
         masterDocument,
         jobDescription,
       });
 
-      const optimizedCode = response.optimizedLatex;
-      setLatexCode(optimizedCode);
-
+      console.log('🔍 [DEBUG] API response received:', !!response);
+      console.log('🔍 [DEBUG] optimizedLatex length:', response.data.optimizedLatex?.length);
+      
+      const optimizedCode = response.data.optimizedLatex;
+      
+      console.log('🔍 [DEBUG] Before state update - activeTab:', activeTab);
+      console.log('🔍 [DEBUG] Setting optimizedCode with length:', optimizedCode?.length);
+      
+      // Update BOTH local state AND store state immediately
       if (activeTab === 'resume') {
+        console.log('🔍 [DEBUG] Updating resume - setting both resumeLatexCode and store latexCode');
         setResumeLatexCode(optimizedCode);
+        setLatexCode(optimizedCode); // Update store directly
         // Save to job application
         await jobApplicationApi.update(parseInt(jobId), {
           generated_resume_latex: optimizedCode,
         });
+        console.log('🔍 [DEBUG] Resume saved to job application');
         toast.success('Resume optimized and saved successfully!');
       } else {
+        console.log('🔍 [DEBUG] Updating cover letter - setting both coverLetterLatexCode and store latexCode');
         setCoverLetterLatexCode(optimizedCode);
+        setLatexCode(optimizedCode); // Update store directly
         // Save to job application
         await jobApplicationApi.update(parseInt(jobId), {
           generated_cover_letter_latex: optimizedCode,
         });
+        console.log('🔍 [DEBUG] Cover letter saved to job application');
         toast.success('Cover letter generated and saved successfully!');
       }
+      
+      console.log('🔍 [DEBUG] State updates completed');
     } catch (error) {
+      console.error('🔍 [DEBUG] Error in handleOptimize:', error);
       let errorMessage = 'Failed to optimize resume section';
       
       // Extract error message from axios error response
@@ -338,9 +358,11 @@ export default function ResumeGenerationPage() {
         }
       }
       
+      console.error('🔍 [DEBUG] Final error message:', errorMessage);
       toast.error(errorMessage);
       setError(errorMessage);
     } finally {
+      console.log('🔍 [DEBUG] handleOptimize finally block - setting isLoading to false');
       setIsLoading(false);
     }
   };
@@ -414,10 +436,10 @@ export default function ResumeGenerationPage() {
     const textarea = textareaRef.current;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const selected = latexCode.substring(start, end);
+    const selected = latexCode?.substring(start, end);
 
 
-    if (selected.trim()) {
+    if (selected?.trim()) {
       // Calculate button position based on selection
       // Get textarea position and scroll offset
       const textareaRect = textarea.getBoundingClientRect();
@@ -611,7 +633,7 @@ export default function ResumeGenerationPage() {
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Editable • Auto-formatted</p>
                 </div>
                 <span className="text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
-                  {latexCode.length > 0 ? `${Math.round(latexCode.length / 1024)} KB` : 'Empty'}
+                  {latexCode && latexCode.length > 0 ? `${Math.round(latexCode.length / 1024)} KB` : 'Empty'}
                 </span>
               </div>
               

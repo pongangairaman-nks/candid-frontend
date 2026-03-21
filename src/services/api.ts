@@ -41,8 +41,11 @@ export interface OptimizeResumeRequest {
 }
 
 export interface OptimizeResumeResponse {
-  optimizedLatex: string;
-  pdfUrl?: string;
+  status: string;
+  message: string;
+  data: {
+    optimizedLatex: string;
+  };
 }
 
 export interface ATSBreakdown {
@@ -178,7 +181,7 @@ export const resumeApi = {
           prompt,
         }
       );
-      return { optimizedText: response.data.optimizedLatex };
+      return { optimizedText: response.data.data.optimizedLatex };
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: { message?: string } } };
       const errorMessage = axiosError.response?.data?.message || 'Failed to optimize section';
@@ -198,6 +201,15 @@ export const resumeApi = {
       });
 
       if (!response.ok) {
+        // Try to get detailed error message from backend
+        try {
+          const errorData = await response.json();
+          if (errorData.message) {
+            throw new Error(errorData.message);
+          }
+        } catch {
+          // If JSON parsing fails, use status text
+        }
         throw new Error(`Failed to compile LaTeX: ${response.statusText}`);
       }
 
@@ -418,7 +430,11 @@ Bachelor's Degree -- Chennai, India
 \\end{document}`;
 
     return {
-      optimizedLatex: mockOptimizedLatex,
+      status: 'success',
+      message: 'Resume optimized successfully',
+      data: {
+        optimizedLatex: mockOptimizedLatex,
+      },
     };
   },
 

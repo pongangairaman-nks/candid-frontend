@@ -37,9 +37,9 @@ interface AvailableModels {
 
 const AVAILABLE_MODELS: AvailableModels = {
   claude: [
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Cheapest)', provider: 'claude' },
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', provider: 'claude' },
-    { id: 'claude-opus-4-1-20250805', name: 'Claude Opus 4.1', provider: 'claude' },
+    { id: 'claude-3-5-sonnet-latest', name: 'Claude 3.5 Sonnet (Recommended)', provider: 'claude' },
+    { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku (Cheap & Fast)', provider: 'claude' },
+    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus (Best Quality)', provider: 'claude' },
   ],
   openai: [
     { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Cheapest)', provider: 'openai' },
@@ -55,20 +55,104 @@ const AVAILABLE_MODELS: AvailableModels = {
 };
 
 export const LLMConfigSection = () => {
+  const [providers, setProviders] = useState<Array<{id: string; name: string; provider: string}>>([]);
+  
   const [analyzerProvider, setAnalyzerProvider] = useState('claude');
-  const [analyzerModel, setAnalyzerModel] = useState('claude-3-5-haiku-20241022');
+  const [analyzerModel, setAnalyzerModel] = useState('claude-3-sonnet-20240229');
   const [analyzerApiKey, setAnalyzerApiKey] = useState('');
   const [analyzerApiKeyVisible, setAnalyzerApiKeyVisible] = useState(false);
+  const [analyzerAvailableModels, setAnalyzerAvailableModels] = useState<Model[]>([]);
+  const [loadingAnalyzerModels, setLoadingAnalyzerModels] = useState(false);
 
   const [generatorProvider, setGeneratorProvider] = useState('openai');
   const [generatorModel, setGeneratorModel] = useState('gpt-4o-mini');
   const [generatorApiKey, setGeneratorApiKey] = useState('');
   const [generatorApiKeyVisible, setGeneratorApiKeyVisible] = useState(false);
+  const [generatorAvailableModels, setGeneratorAvailableModels] = useState<Model[]>([]);
+  const [loadingGeneratorModels, setLoadingGeneratorModels] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Fetch providers on mount
+  useEffect(() => {
+    const fetchProviders = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/llm/providers`);
+        if (response.ok) {
+          const data = await response.json();
+          setProviders(data);
+          console.log(`✅ Fetched ${data.length} providers`);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching providers:', error);
+      }
+    };
+    fetchProviders();
+  }, []);
+
+  // Fetch models for a specific provider
+  const fetchModelsForProvider = async (type: 'analyzer' | 'generator', selectedProvider: string, selectedApiKey: string) => {
+    try {
+      if (type === 'analyzer') {
+        setLoadingAnalyzerModels(true);
+      } else {
+        setLoadingGeneratorModels(true);
+      }
+
+      let url = `${API_BASE_URL}/llm/models/${selectedProvider}`;
+      if (selectedApiKey) {
+        url += `?apiKey=${encodeURIComponent(selectedApiKey)}`;
+      }
+
+      console.log(`🔍 Fetching models for ${type} (${selectedProvider}): ${url}`);
+      const response = await fetch(url);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.models && data.models.length > 0) {
+          console.log(`✅ Fetched ${data.models.length} models for ${selectedProvider}`);
+          if (type === 'analyzer') {
+            setAnalyzerAvailableModels(data.models);
+          } else {
+            setGeneratorAvailableModels(data.models);
+          }
+        } else {
+          console.warn(`⚠️ No models returned for ${selectedProvider}, using defaults`);
+          const defaultModels = AVAILABLE_MODELS[selectedProvider] || [];
+          if (type === 'analyzer') {
+            setAnalyzerAvailableModels(defaultModels);
+          } else {
+            setGeneratorAvailableModels(defaultModels);
+          }
+        }
+      } else {
+        console.warn(`⚠️ Failed to fetch models for ${selectedProvider}, using defaults`);
+        const defaultModels = AVAILABLE_MODELS[selectedProvider] || [];
+        if (type === 'analyzer') {
+          setAnalyzerAvailableModels(defaultModels);
+        } else {
+          setGeneratorAvailableModels(defaultModels);
+        }
+      }
+    } catch (error) {
+      console.error(`❌ Error fetching models for ${selectedProvider}:`, error);
+      const defaultModels = AVAILABLE_MODELS[selectedProvider] || [];
+      if (type === 'analyzer') {
+        setAnalyzerAvailableModels(defaultModels);
+      } else {
+        setGeneratorAvailableModels(defaultModels);
+      }
+    } finally {
+      if (type === 'analyzer') {
+        setLoadingAnalyzerModels(false);
+      } else {
+        setLoadingGeneratorModels(false);
+      }
+    }
+  };
 
   // Load config from backend on mount with caching
   useEffect(() => {
@@ -111,19 +195,41 @@ export const LLMConfigSection = () => {
         if (response.ok) {
           const config = await response.json();
           
+          // Validate analyzer model exists in available models
+          const analyzerProvider = config.analyzer_provider || 'claude';
+          const analyzerModels = AVAILABLE_MODELS[analyzerProvider] || [];
+          let analyzerModel = config.analyzer_model;
+          
+          // If model is invalid, use first available model for that provider
+          if (!analyzerModels.find((m: Model) => m.id === analyzerModel)) {
+            console.warn(`⚠️ Invalid analyzer model: ${analyzerModel}, using default`);
+            analyzerModel = analyzerModels[0]?.id || 'claude-3-sonnet-20240229';
+          }
+          
+          // Validate generator model exists in available models
+          const generatorProvider = config.generator_provider || 'openai';
+          const generatorModels = AVAILABLE_MODELS[generatorProvider] || [];
+          let generatorModel = config.generator_model;
+          
+          // If model is invalid, use first available model for that provider
+          if (!generatorModels.find((m: Model) => m.id === generatorModel)) {
+            console.warn(`⚠️ Invalid generator model: ${generatorModel}, using default`);
+            generatorModel = generatorModels[0]?.id || 'gpt-4o-mini';
+          }
+          
           // Update cache
           globalConfigCache = {
             data: config,
             timestamp: now,
           };
 
-          setAnalyzerProvider(config.analyzer_provider);
-          setAnalyzerModel(config.analyzer_model);
+          setAnalyzerProvider(analyzerProvider);
+          setAnalyzerModel(analyzerModel);
           if (config.analyzer_api_key) {
             setAnalyzerApiKey(config.analyzer_api_key);
           }
-          setGeneratorProvider(config.generator_provider);
-          setGeneratorModel(config.generator_model);
+          setGeneratorProvider(generatorProvider);
+          setGeneratorModel(generatorModel);
           if (config.generator_api_key) {
             setGeneratorApiKey(config.generator_api_key);
           }
@@ -196,8 +302,13 @@ export const LLMConfigSection = () => {
     }
   };
 
-  const analyzerModels = AVAILABLE_MODELS[analyzerProvider] || [];
-  const generatorModels = AVAILABLE_MODELS[generatorProvider] || [];
+  // Use dynamically fetched models if available, otherwise use defaults
+  const analyzerModels = analyzerAvailableModels.length > 0 
+    ? analyzerAvailableModels 
+    : AVAILABLE_MODELS[analyzerProvider] || [];
+  const generatorModels = generatorAvailableModels.length > 0 
+    ? generatorAvailableModels 
+    : AVAILABLE_MODELS[generatorProvider] || [];
   const selectedAnalyzerModel = analyzerModels.find((m: Model) => m.id === analyzerModel)?.name || 'Unknown';
   const selectedGeneratorModel = generatorModels.find((m: Model) => m.id === generatorModel)?.name || 'Unknown';
 
@@ -243,7 +354,7 @@ export const LLMConfigSection = () => {
                 <div className="space-y-4">
                   <CustomSelect
                     label="Provider"
-                    options={[
+                    options={providers.length > 0 ? providers : [
                       { id: 'claude', name: 'Claude (Anthropic)', provider: 'claude' },
                       { id: 'openai', name: 'OpenAI', provider: 'openai' },
                       { id: 'gemini', name: 'Gemini (Google)', provider: 'gemini' },
@@ -252,6 +363,9 @@ export const LLMConfigSection = () => {
                     onChange={(newProvider) => {
                       setGeneratorProvider(newProvider);
                       setGeneratorModel(AVAILABLE_MODELS[newProvider]?.[0]?.id || '');
+                      setGeneratorAvailableModels([]);
+                      // Fetch models for the selected provider
+                      fetchModelsForProvider('generator', newProvider, generatorApiKey);
                     }}
                     description="Choose the LLM provider for generating tailored resumes"
                   />
@@ -279,6 +393,10 @@ export const LLMConfigSection = () => {
                         onChange={(e) => {
                           setGeneratorApiKey(e.target.value);
                           setErrorMessage('');
+                          // Fetch models when API key changes (especially for Claude)
+                          if (generatorProvider === 'claude' && e.target.value.trim()) {
+                            fetchModelsForProvider('generator', generatorProvider, e.target.value);
+                          }
                         }}
                         placeholder={`Enter your ${generatorProvider} API key`}
                         className="w-full px-4 py-3 pr-12 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
@@ -304,7 +422,7 @@ export const LLMConfigSection = () => {
                 <div className="space-y-4">
                   <CustomSelect
                     label="Provider"
-                    options={[
+                    options={providers.length > 0 ? providers : [
                       { id: 'claude', name: 'Claude (Anthropic)', provider: 'claude' },
                       { id: 'openai', name: 'OpenAI', provider: 'openai' },
                       { id: 'gemini', name: 'Gemini (Google)', provider: 'gemini' },
@@ -313,6 +431,9 @@ export const LLMConfigSection = () => {
                     onChange={(newProvider) => {
                       setAnalyzerProvider(newProvider);
                       setAnalyzerModel(AVAILABLE_MODELS[newProvider]?.[0]?.id || '');
+                      setAnalyzerAvailableModels([]);
+                      // Fetch models for the selected provider
+                      fetchModelsForProvider('analyzer', newProvider, analyzerApiKey);
                     }}
                     description="Choose the LLM provider for analyzing job descriptions"
                   />
@@ -340,6 +461,10 @@ export const LLMConfigSection = () => {
                         onChange={(e) => {
                           setAnalyzerApiKey(e.target.value);
                           setErrorMessage('');
+                          // Fetch models when API key changes (especially for Claude)
+                          if (analyzerProvider === 'claude' && e.target.value.trim()) {
+                            fetchModelsForProvider('analyzer', analyzerProvider, e.target.value);
+                          }
                         }}
                         placeholder={`Enter your ${analyzerProvider} API key`}
                         className="w-full px-4 py-3 pr-12 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
