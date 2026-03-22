@@ -13,6 +13,53 @@ import { useParams, useRouter } from 'next/navigation';
 
 type TabType = 'resume' | 'coverLetter';
 
+type SectionSpan = { key: string; start: number; end: number; title: string };
+
+const slugify = (s: string) =>
+  (s || 'section')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'section';
+
+const parseSections = (content: string, isLatex: boolean): SectionSpan[] => {
+  if (!content) return [{ key: 'document-0', start: 0, end: 0, title: 'document' }];
+  const headers: Array<{ title: string; index: number; level: number }> = [];
+  if (isLatex) {
+    const re = /\\(sub)?section\{([^}]*)\}/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(content)) !== null) {
+      headers.push({ title: m[2].trim(), index: m.index, level: m[1] ? 2 : 1 });
+    }
+  } else {
+    const names = ['Summary', 'Objective', 'Experience', 'Work Experience', 'Education', 'Projects', 'Skills', 'Certifications', 'Awards', 'Publications'];
+    const nameRe = new RegExp(`^\\s*(${names.join('|')})\\b.*$`, 'gmi');
+    let m: RegExpExecArray | null;
+    while ((m = nameRe.exec(content)) !== null) {
+      headers.push({ title: m[1].trim(), index: m.index, level: 1 });
+    }
+  }
+  if (headers.length === 0) return [{ key: 'document-0', start: 0, end: content.length, title: 'document' }];
+  headers.sort((a, b) => a.index - b.index);
+  const spans: SectionSpan[] = [];
+  const counts: Record<string, number> = {};
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i];
+    const start = h.index;
+    const end = i + 1 < headers.length ? headers[i + 1].index : content.length;
+    const base = slugify(h.title);
+    counts[base] = (counts[base] || 0) + 1;
+    const key = `${base}-${counts[base] - 1}`;
+    spans.push({ key, start, end, title: h.title });
+  }
+  return spans;
+};
+
+const findSectionKey = (content: string, index: number, isLatex: boolean): string | null => {
+  const spans = parseSections(content, isLatex);
+  const span = spans.find(s => index >= s.start && index < s.end);
+  return span ? span.key : null;
+};
+
 const formatTimeDifference = (date: Date): string => {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -56,6 +103,7 @@ export default function ResumeGenerationPage() {
   const [atsData, setAtsData] = useState<ATSScoreResponse | null>(null);
   const [lastAtsDelta, setLastAtsDelta] = useState<number | null>(null);
   const [lastAtsUpdatedAt, setLastAtsUpdatedAt] = useState<Date | null>(null);
+  const [lastSectionKey, setLastSectionKey] = useState<string | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -260,8 +308,8 @@ export default function ResumeGenerationPage() {
           setCoverLetterPrompt(coverLetterPromptToUse);
         }
 
-        // Load LaTeX template preference from config
-        setUseLatexTemplate(llmConfig.use_latex_template !== undefined ? llmConfig.use_latex_template : true);
+        // Phase 1: Force LaTeX template preference ON regardless of config
+        setUseLatexTemplate(true);
       } catch (error) {
         console.error('Failed to fetch data:', error);
         toast.error('Failed to load job application data');
@@ -469,12 +517,26 @@ export default function ResumeGenerationPage() {
 
     setAtsLoading(true);
     try {
+      // Compile LaTeX to PDF, then extract text from the actual PDF for ATS analysis
+      const { pdfUrl: compiledPdfUrl } = await resumeApi.generatePdf(latexCode);
+      setPdfUrl(compiledPdfUrl);
+
+      const pdfjsLib = await import('pdfjs-dist');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (pdfjsLib as any).GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pdfDoc = await (pdfjsLib as any).getDocument(compiledPdfUrl).promise;
+      let extractedText = '';
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const page = await (pdfDoc as any).getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((it: { str: string }) => it.str).join(' ');
+        extractedText += (extractedText ? '\n' : '') + pageText;
+      }
+
       if (process.env.NEXT_PUBLIC_ATS_LLM_BETA === 'true') {
-        const baseline = await atsLLMApi.baseline(
-          resumeIdForAts
-            ? { resumeId: resumeIdForAts, jobDescription, force: true }
-            : { resumeText: latexCode, jobDescription }
-        );
+        const baseline = await atsLLMApi.baseline({ resumeText: extractedText, jobDescription, force: true });
         const score = baseline.overall_score || 0;
         const status = score >= 70 ? 'pass' : score >= 50 ? 'review' : 'fail';
         const message = score >= 85
@@ -507,11 +569,13 @@ export default function ResumeGenerationPage() {
         setAtsData(mapped);
         setLastAtsDelta(0);
         setLastAtsUpdatedAt(baseline.updated_at ? new Date(baseline.updated_at) : new Date());
+        setLastSectionKey(null);
       } else {
-        const response = await resumeApi.checkATSScore(latexCode, jobDescription);
+        const response = await resumeApi.checkATSScore(extractedText, jobDescription);
         setAtsData(response);
         setLastAtsDelta(0);
         setLastAtsUpdatedAt(new Date());
+        setLastSectionKey(null);
       }
       setShowATSModal(true);
     } catch (err) {
@@ -616,11 +680,12 @@ export default function ResumeGenerationPage() {
           setAtsLoading(true);
           if (resumeIdForAts) {
             // Incremental re-score (token-cheap, stub-friendly)
+            const sectionKey = findSectionKey(latexCode, start, useLatexTemplate);
             const inc = await atsLLMApi.rescore({
               resumeId: resumeIdForAts,
               after_text: optimized,
               before_text: selectedText,
-              // section_key omitted -> backend rescoring MISSING requirements
+              section_key: sectionKey || undefined,
             });
             const score = inc.new_overall_score || 0;
             const delta = typeof inc.score_delta === 'number' ? inc.score_delta : 0;
@@ -650,6 +715,7 @@ export default function ResumeGenerationPage() {
             setAtsData(mapped);
             setLastAtsDelta(delta);
             setLastAtsUpdatedAt(new Date());
+            setLastSectionKey(sectionKey || null);
             if (delta !== 0) {
               toast.success(`ATS ${delta > 0 ? '+' : ''}${delta} → ${score}`);
             } else {
@@ -690,6 +756,7 @@ export default function ResumeGenerationPage() {
             setAtsData(mapped);
             setLastAtsDelta(0);
             setLastAtsUpdatedAt(baseline.updated_at ? new Date(baseline.updated_at) : new Date());
+            setLastSectionKey(null);
           }
         } catch (e) {
           console.error('Failed to refresh ATS baseline after edit', e);
@@ -897,7 +964,7 @@ export default function ResumeGenerationPage() {
                       ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
                       : 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                   }`}
-                  title={`Last ATS change${lastAtsUpdatedAt ? ' — ' + formatTimeDifference(lastAtsUpdatedAt) + ' ago' : ''} · Click to open details`}
+                  title={`Last ATS change${lastAtsUpdatedAt ? ' — ' + formatTimeDifference(lastAtsUpdatedAt) + ' ago' : ''}${lastSectionKey ? ' · Section: ' + lastSectionKey : ''} · Click to open details`}
                 >
                   {lastAtsDelta > 0 ? `+${lastAtsDelta}` : `${lastAtsDelta}`}
                 </button>
@@ -941,6 +1008,7 @@ export default function ResumeGenerationPage() {
         atsData={atsData}
         isLoading={atsLoading}
         lastDelta={lastAtsDelta === null ? undefined : lastAtsDelta}
+        lastSectionKey={lastSectionKey === null ? undefined : lastSectionKey}
       />
 
       {/* Selective Optimization Modal */}

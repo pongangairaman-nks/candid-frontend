@@ -54,9 +54,10 @@ interface ATSScoreModalProps {
   } | null;
   isLoading?: boolean;
   lastDelta?: number;
+  lastSectionKey?: string;
 }
 
-export const ATSScoreModal = ({ isOpen, onClose, atsData, isLoading = false, lastDelta }: ATSScoreModalProps) => {
+export const ATSScoreModal = ({ isOpen, onClose, atsData, isLoading = false, lastDelta, lastSectionKey }: ATSScoreModalProps) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'breakdown' | 'suggestions'>('overview');
 
   if (!isOpen) return null;
@@ -125,6 +126,11 @@ export const ATSScoreModal = ({ isOpen, onClose, atsData, isLoading = false, las
                         {lastDelta > 0 ? `+${lastDelta}` : `${lastDelta}`}
                       </span>
                     )}
+                    {lastSectionKey && (
+                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700" title={`Last affected section: ${lastSectionKey}`}>
+                        section: {lastSectionKey}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="text-right">
@@ -139,6 +145,11 @@ export const ATSScoreModal = ({ isOpen, onClose, atsData, isLoading = false, las
                   )}
                 </div>
               </div>
+              {lastSectionKey && (
+                <div className="-mt-2 mb-3 ml-6 text-xs text-slate-600 dark:text-slate-400">
+                  Targeted rescore for section: <span className="font-mono">{lastSectionKey}</span>
+                </div>
+              )}
               <p className="text-sm text-slate-700 dark:text-slate-300">{atsData.message}</p>
             </div>
 
