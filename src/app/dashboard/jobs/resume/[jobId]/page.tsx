@@ -4,7 +4,7 @@ import { Sparkles, Eye, Download, TrendingUp, FileText, Mail, Loader } from 'luc
 import { toast } from 'react-toastify';
 import { useResumeStore } from '@/store/resumeStore';
 import { useState, useEffect, useRef } from 'react';
-import { resumeApi, jobApplicationApi, llmConfigApi, type ATSScoreResponse } from '@/services/api';
+import { resumeApi, jobApplicationApi, llmConfigApi, atsLLMApi, type ATSScoreResponse } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
 import { TextPreviewModal } from '@/components/TextPreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
@@ -460,8 +460,42 @@ export default function ResumeGenerationPage() {
 
     setAtsLoading(true);
     try {
-      const response = await resumeApi.checkATSScore(latexCode, jobDescription);
-      setAtsData(response);
+      if (process.env.NEXT_PUBLIC_ATS_LLM_BETA === 'true') {
+        const baseline = await atsLLMApi.baseline({ resumeText: latexCode, jobDescription });
+        const score = baseline.overall_score || 0;
+        const status = score >= 70 ? 'pass' : score >= 50 ? 'review' : 'fail';
+        const message = score >= 85
+          ? '🟢 Excellent! Your resume is highly optimized for ATS systems.'
+          : score >= 70
+          ? '🟡 Good! Your resume should pass most ATS systems. Consider the suggestions to improve further.'
+          : score >= 50
+          ? '🟠 Fair. Your resume may be filtered by some ATS systems. Follow the suggestions to improve.'
+          : '🔴 Poor. Your resume needs significant improvements to pass ATS systems.';
+        const mapped: ATSScoreResponse = {
+          score,
+          status,
+          message,
+          breakdown: {
+            primary_keywords: { matched: 0, total: 0, percentage: 0, weight: 0.4 },
+            secondary_keywords: { matched: 0, total: 0, percentage: 0, weight: 0.25 },
+            matching_skills: { matched: 0, missing: 0, total: 0, percentage: 0, weight: 0.15 },
+            format_quality: { score: 100, weight: 0.1 },
+            seniority_alignment: { score: 80, weight: 0.1 },
+          },
+          suggestions: (baseline.critical_gaps || []).slice(0, 3).map(g => ({
+            priority: 'high',
+            category: 'gap',
+            message: g,
+            impact: 'Addresses critical requirement gap',
+          })),
+          tips: baseline.keyword_gaps || [],
+          gaps: baseline.critical_gaps || [],
+        };
+        setAtsData(mapped);
+      } else {
+        const response = await resumeApi.checkATSScore(latexCode, jobDescription);
+        setAtsData(response);
+      }
       setShowATSModal(true);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to check ATS score';
@@ -557,6 +591,50 @@ export default function ResumeGenerationPage() {
 
     setShowOptimizationModal(false);
     toast.success('Section optimized and applied!');
+
+    // If beta enabled, refresh ATS baseline in background so modal shows updated score
+    if (process.env.NEXT_PUBLIC_ATS_LLM_BETA === 'true' && jobDescription) {
+      (async () => {
+        try {
+          setAtsLoading(true);
+          const baseline = await atsLLMApi.baseline({ resumeText: newLatexCode, jobDescription });
+          const score = baseline.overall_score || 0;
+          const status = score >= 70 ? 'pass' : score >= 50 ? 'review' : 'fail';
+          const message = score >= 85
+            ? '🟢 Excellent! Your resume is highly optimized for ATS systems.'
+            : score >= 70
+            ? '🟡 Good! Your resume should pass most ATS systems. Consider the suggestions to improve further.'
+            : score >= 50
+            ? '🟠 Fair. Your resume may be filtered by some ATS systems. Follow the suggestions to improve.'
+            : '🔴 Poor. Your resume needs significant improvements to pass ATS systems.';
+          const mapped: ATSScoreResponse = {
+            score,
+            status,
+            message,
+            breakdown: {
+              primary_keywords: { matched: 0, total: 0, percentage: 0, weight: 0.4 },
+              secondary_keywords: { matched: 0, total: 0, percentage: 0, weight: 0.25 },
+              matching_skills: { matched: 0, missing: 0, total: 0, percentage: 0, weight: 0.15 },
+              format_quality: { score: 100, weight: 0.1 },
+              seniority_alignment: { score: 80, weight: 0.1 },
+            },
+            suggestions: (baseline.critical_gaps || []).slice(0, 3).map(g => ({
+              priority: 'high',
+              category: 'gap',
+              message: g,
+              impact: 'Addresses critical requirement gap',
+            })),
+            tips: baseline.keyword_gaps || [],
+            gaps: baseline.critical_gaps || [],
+          };
+          setAtsData(mapped);
+        } catch (e) {
+          console.error('Failed to refresh ATS baseline after edit', e);
+        } finally {
+          setAtsLoading(false);
+        }
+      })();
+    }
   };
 
   return (

@@ -48,6 +48,47 @@ export interface OptimizeResumeResponse {
   };
 }
 
+// LLM-based ATS endpoints (baseline + incremental re-score)
+export interface LLMAtsBaseline {
+  requirements: Array<{ id: string; text: string; category: string; priority: string }>;
+  mappings: Array<{ requirement_id: string; match_strength: string; evidence?: string | null; section_key?: string; suggestion?: string | null }>;
+  overall_score: number;
+  keyword_gaps: string[];
+  strengths: string[];
+  critical_gaps: string[];
+  updated_at?: string;
+}
+
+export const atsLLMApi = {
+  baseline: async (params: { resumeId?: number; resumeText?: string; jobDescription?: string; force?: boolean }): Promise<LLMAtsBaseline> => {
+    const response = await apiClient.post<{ status: string; data: LLMAtsBaseline }>(
+      '/ats/llm/analysis',
+      params
+    );
+    if (response.data?.status !== 'success') {
+      throw new Error('Failed to fetch LLM ATS baseline');
+    }
+    return response.data.data;
+  },
+
+  rescore: async (
+    params: { resumeId: number; section_key: string; before_text?: string; after_text: string }
+  ): Promise<{
+    updated_mappings: Array<{ requirement_id: string; match_strength: string; was?: string }>;
+    score_delta: number;
+    new_overall_score: number;
+  }> => {
+    const response = await apiClient.post<{ status: string; data: { updated_mappings: Array<{ requirement_id: string; match_strength: string; was?: string }>; score_delta: number; new_overall_score: number; } }>(
+      '/ats/llm/rescore',
+      params
+    );
+    if (response.data?.status !== 'success') {
+      throw new Error('Failed to re-score LLM ATS');
+    }
+    return response.data.data;
+  }
+};
+
 export interface ATSBreakdown {
   primary_keywords: {
     matched: number;
@@ -487,6 +528,7 @@ export interface JobApplication {
   applied_date?: string;
   interview_date?: string;
   notes?: string;
+  resume_id?: number;
   resume_pdf_url?: string;
   cover_letter_pdf_url?: string;
   generated_resume_latex?: string;
