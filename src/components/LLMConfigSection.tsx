@@ -93,8 +93,8 @@ export const LLMConfigSection = () => {
     fetchProviders();
   }, []);
 
-  // Fetch models for a specific provider
-  const fetchModelsForProvider = async (type: 'analyzer' | 'generator', selectedProvider: string, selectedApiKey: string) => {
+  // Fetch models for a specific provider using backend's saved API key
+  const fetchModelsForProvider = async (type: 'analyzer' | 'generator', selectedProvider: string) => {
     try {
       if (type === 'analyzer') {
         setLoadingAnalyzerModels(true);
@@ -102,18 +102,31 @@ export const LLMConfigSection = () => {
         setLoadingGeneratorModels(true);
       }
 
-      let url = `${API_BASE_URL}/llm/models/${selectedProvider}`;
-      if (selectedApiKey) {
-        url += `?apiKey=${encodeURIComponent(selectedApiKey)}`;
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        console.warn('⚠️ No auth token found');
+        const defaultModels = AVAILABLE_MODELS[selectedProvider] || [];
+        if (type === 'analyzer') {
+          setAnalyzerAvailableModels(defaultModels);
+        } else {
+          setGeneratorAvailableModels(defaultModels);
+        }
+        return;
       }
 
-      console.log(`🔍 Fetching models for ${type} (${selectedProvider}): ${url}`);
-      const response = await fetch(url);
+      const url = `${API_BASE_URL}/llm/models-for-user/${selectedProvider}`;
+      console.log(`🔍 Fetching models for ${type} (${selectedProvider}) from backend`);
+      
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       
       if (response.ok) {
         const data = await response.json();
         if (data.models && data.models.length > 0) {
-          console.log(`✅ Fetched ${data.models.length} models for ${selectedProvider}`);
+          console.log(`✅ Fetched ${data.models.length} models for ${selectedProvider} (source: ${data.source})`);
           if (type === 'analyzer') {
             setAnalyzerAvailableModels(data.models);
           } else {
@@ -195,27 +208,13 @@ export const LLMConfigSection = () => {
         if (response.ok) {
           const config = await response.json();
           
-          // Validate analyzer model exists in available models
+          // Use the saved provider and model directly (no validation against static list)
+          // Models are now dynamically fetched, so we trust the saved values
           const analyzerProvider = config.analyzer_provider || 'claude';
-          const analyzerModels = AVAILABLE_MODELS[analyzerProvider] || [];
-          let analyzerModel = config.analyzer_model;
+          const analyzerModel = config.analyzer_model || 'claude-3-5-sonnet-latest';
           
-          // If model is invalid, use first available model for that provider
-          if (!analyzerModels.find((m: Model) => m.id === analyzerModel)) {
-            console.warn(`⚠️ Invalid analyzer model: ${analyzerModel}, using default`);
-            analyzerModel = analyzerModels[0]?.id || 'claude-3-sonnet-20240229';
-          }
-          
-          // Validate generator model exists in available models
           const generatorProvider = config.generator_provider || 'openai';
-          const generatorModels = AVAILABLE_MODELS[generatorProvider] || [];
-          let generatorModel = config.generator_model;
-          
-          // If model is invalid, use first available model for that provider
-          if (!generatorModels.find((m: Model) => m.id === generatorModel)) {
-            console.warn(`⚠️ Invalid generator model: ${generatorModel}, using default`);
-            generatorModel = generatorModels[0]?.id || 'gpt-4o-mini';
-          }
+          const generatorModel = config.generator_model || 'gpt-4o-mini';
           
           // Update cache
           globalConfigCache = {
@@ -233,6 +232,14 @@ export const LLMConfigSection = () => {
           if (config.generator_api_key) {
             setGeneratorApiKey(config.generator_api_key);
           }
+          
+          // Fetch models for both providers
+          if (config.analyzer_api_key) {
+            await fetchModelsForProvider('analyzer', analyzerProvider);
+          }
+          if (config.generator_api_key) {
+            await fetchModelsForProvider('generator', generatorProvider);
+          }
         } else {
           console.warn('⚠️ Failed to fetch config, status:', response.status);
         }
@@ -245,6 +252,19 @@ export const LLMConfigSection = () => {
 
     fetchConfig();
   }, []);
+
+  // Fetch models when provider changes
+  useEffect(() => {
+    if (analyzerProvider) {
+      fetchModelsForProvider('analyzer', analyzerProvider);
+    }
+  }, [analyzerProvider]);
+
+  useEffect(() => {
+    if (generatorProvider) {
+      fetchModelsForProvider('generator', generatorProvider);
+    }
+  }, [generatorProvider]);
 
   const handleSave = async () => {
     if (!analyzerApiKey.trim() || !generatorApiKey.trim()) {
@@ -365,7 +385,7 @@ export const LLMConfigSection = () => {
                       setGeneratorModel(AVAILABLE_MODELS[newProvider]?.[0]?.id || '');
                       setGeneratorAvailableModels([]);
                       // Fetch models for the selected provider
-                      fetchModelsForProvider('generator', newProvider, generatorApiKey);
+                      fetchModelsForProvider('generator', newProvider);
                     }}
                     description="Choose the LLM provider for generating tailored resumes"
                   />
@@ -393,10 +413,6 @@ export const LLMConfigSection = () => {
                         onChange={(e) => {
                           setGeneratorApiKey(e.target.value);
                           setErrorMessage('');
-                          // Fetch models when API key changes (especially for Claude)
-                          if (generatorProvider === 'claude' && e.target.value.trim()) {
-                            fetchModelsForProvider('generator', generatorProvider, e.target.value);
-                          }
                         }}
                         placeholder={`Enter your ${generatorProvider} API key`}
                         className="w-full px-4 py-3 pr-12 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
@@ -433,7 +449,7 @@ export const LLMConfigSection = () => {
                       setAnalyzerModel(AVAILABLE_MODELS[newProvider]?.[0]?.id || '');
                       setAnalyzerAvailableModels([]);
                       // Fetch models for the selected provider
-                      fetchModelsForProvider('analyzer', newProvider, analyzerApiKey);
+                      fetchModelsForProvider('analyzer', newProvider);
                     }}
                     description="Choose the LLM provider for analyzing job descriptions"
                   />
@@ -461,10 +477,6 @@ export const LLMConfigSection = () => {
                         onChange={(e) => {
                           setAnalyzerApiKey(e.target.value);
                           setErrorMessage('');
-                          // Fetch models when API key changes (especially for Claude)
-                          if (analyzerProvider === 'claude' && e.target.value.trim()) {
-                            fetchModelsForProvider('analyzer', analyzerProvider, e.target.value);
-                          }
                         }}
                         placeholder={`Enter your ${analyzerProvider} API key`}
                         className="w-full px-4 py-3 pr-12 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"

@@ -470,7 +470,7 @@ export default function ConfigurationPage() {
                   {/* Label */}
                   <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                     <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      Master Resume Prompt
+                      Master Resume Optmization Prompt
                     </label>
                     <span className="text-xs text-slate-500 dark:text-slate-400">
                       {masterResumePrompt.length > 0 && `${Math.round(masterResumePrompt.length / 1024)} KB`}
@@ -504,7 +504,7 @@ export default function ConfigurationPage() {
                   {/* Label */}
                   <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                     <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      Master Cover Letter Prompt
+                      Master Cover Letter Optmization Prompt
                     </label>
                     <span className="text-xs text-slate-500 dark:text-slate-400">
                       {masterCoverLetterPrompt.length > 0 && `${Math.round(masterCoverLetterPrompt.length / 1024)} KB`}
