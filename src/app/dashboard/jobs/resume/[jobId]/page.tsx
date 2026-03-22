@@ -9,7 +9,7 @@ import { PreviewModal } from '@/components/PreviewModal';
 import { TextPreviewModal } from '@/components/TextPreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
 import { SelectiveOptimizationModal } from '@/components/SelectiveOptimizationModal';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 
 type TabType = 'resume' | 'coverLetter';
 
@@ -28,6 +28,7 @@ const formatTimeDifference = (date: Date): string => {
 
 export default function ResumeGenerationPage() {
   const params = useParams();
+  const router = useRouter();
   const jobId = params.jobId as string;
 
   const {
@@ -43,6 +44,7 @@ export default function ResumeGenerationPage() {
   } = useResumeStore();
 
   const [activeTab, setActiveTab] = useState<TabType>('resume');
+  const [resumeIdForAts, setResumeIdForAts] = useState<number | null>(null);
   const [prompt, setPrompt] = useState('');
   const [resumeLatexCode, setResumeLatexCode] = useState('');
   const [coverLetterLatexCode, setCoverLetterLatexCode] = useState('');
@@ -52,6 +54,8 @@ export default function ResumeGenerationPage() {
   const [showATSModal, setShowATSModal] = useState(false);
   const [atsLoading, setAtsLoading] = useState(false);
   const [atsData, setAtsData] = useState<ATSScoreResponse | null>(null);
+  const [lastAtsDelta, setLastAtsDelta] = useState<number | null>(null);
+  const [lastAtsUpdatedAt, setLastAtsUpdatedAt] = useState<Date | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -205,6 +209,11 @@ export default function ResumeGenerationPage() {
         // Only load job description if it was explicitly set (not empty/null)
         if (jobApp.job_description && jobApp.job_description.trim()) {
           setJobDescription(jobApp.job_description);
+        }
+
+        // Capture resume_id for ATS incremental rescore (if available)
+        if (typeof jobApp.resume_id === 'number') {
+          setResumeIdForAts(jobApp.resume_id);
         }
 
         // Load last modified timestamp from database
@@ -461,7 +470,11 @@ export default function ResumeGenerationPage() {
     setAtsLoading(true);
     try {
       if (process.env.NEXT_PUBLIC_ATS_LLM_BETA === 'true') {
-        const baseline = await atsLLMApi.baseline({ resumeText: latexCode, jobDescription });
+        const baseline = await atsLLMApi.baseline(
+          resumeIdForAts
+            ? { resumeId: resumeIdForAts, jobDescription, force: true }
+            : { resumeText: latexCode, jobDescription }
+        );
         const score = baseline.overall_score || 0;
         const status = score >= 70 ? 'pass' : score >= 50 ? 'review' : 'fail';
         const message = score >= 85
@@ -492,9 +505,13 @@ export default function ResumeGenerationPage() {
           gaps: baseline.critical_gaps || [],
         };
         setAtsData(mapped);
+        setLastAtsDelta(0);
+        setLastAtsUpdatedAt(baseline.updated_at ? new Date(baseline.updated_at) : new Date());
       } else {
         const response = await resumeApi.checkATSScore(latexCode, jobDescription);
         setAtsData(response);
+        setLastAtsDelta(0);
+        setLastAtsUpdatedAt(new Date());
       }
       setShowATSModal(true);
     } catch (err) {
@@ -592,42 +609,88 @@ export default function ResumeGenerationPage() {
     setShowOptimizationModal(false);
     toast.success('Section optimized and applied!');
 
-    // If beta enabled, refresh ATS baseline in background so modal shows updated score
+    // If beta enabled, attempt incremental re-score; fallback to baseline refresh
     if (process.env.NEXT_PUBLIC_ATS_LLM_BETA === 'true' && jobDescription) {
       (async () => {
         try {
           setAtsLoading(true);
-          const baseline = await atsLLMApi.baseline({ resumeText: newLatexCode, jobDescription });
-          const score = baseline.overall_score || 0;
-          const status = score >= 70 ? 'pass' : score >= 50 ? 'review' : 'fail';
-          const message = score >= 85
-            ? '🟢 Excellent! Your resume is highly optimized for ATS systems.'
-            : score >= 70
-            ? '🟡 Good! Your resume should pass most ATS systems. Consider the suggestions to improve further.'
-            : score >= 50
-            ? '🟠 Fair. Your resume may be filtered by some ATS systems. Follow the suggestions to improve.'
-            : '🔴 Poor. Your resume needs significant improvements to pass ATS systems.';
-          const mapped: ATSScoreResponse = {
-            score,
-            status,
-            message,
-            breakdown: {
-              primary_keywords: { matched: 0, total: 0, percentage: 0, weight: 0.4 },
-              secondary_keywords: { matched: 0, total: 0, percentage: 0, weight: 0.25 },
-              matching_skills: { matched: 0, missing: 0, total: 0, percentage: 0, weight: 0.15 },
-              format_quality: { score: 100, weight: 0.1 },
-              seniority_alignment: { score: 80, weight: 0.1 },
-            },
-            suggestions: (baseline.critical_gaps || []).slice(0, 3).map(g => ({
-              priority: 'high',
-              category: 'gap',
-              message: g,
-              impact: 'Addresses critical requirement gap',
-            })),
-            tips: baseline.keyword_gaps || [],
-            gaps: baseline.critical_gaps || [],
-          };
-          setAtsData(mapped);
+          if (resumeIdForAts) {
+            // Incremental re-score (token-cheap, stub-friendly)
+            const inc = await atsLLMApi.rescore({
+              resumeId: resumeIdForAts,
+              after_text: optimized,
+              before_text: selectedText,
+              // section_key omitted -> backend rescoring MISSING requirements
+            });
+            const score = inc.new_overall_score || 0;
+            const delta = typeof inc.score_delta === 'number' ? inc.score_delta : 0;
+            const status = score >= 70 ? 'pass' : score >= 50 ? 'review' : 'fail';
+            const message = score >= 85
+              ? '🟢 Excellent! Your resume is highly optimized for ATS systems.'
+              : score >= 70
+              ? '🟡 Good! Your resume should pass most ATS systems. Consider the suggestions to improve further.'
+              : score >= 50
+              ? '🟠 Fair. Your resume may be filtered by some ATS systems. Follow the suggestions to improve.'
+              : '🔴 Poor. Your resume needs significant improvements to pass ATS systems.';
+            const mapped: ATSScoreResponse = {
+              score,
+              status,
+              message,
+              breakdown: {
+                primary_keywords: { matched: 0, total: 0, percentage: 0, weight: 0.4 },
+                secondary_keywords: { matched: 0, total: 0, percentage: 0, weight: 0.25 },
+                matching_skills: { matched: 0, missing: 0, total: 0, percentage: 0, weight: 0.15 },
+                format_quality: { score: 100, weight: 0.1 },
+                seniority_alignment: { score: 80, weight: 0.1 },
+              },
+              suggestions: [],
+              tips: [],
+              gaps: [],
+            };
+            setAtsData(mapped);
+            setLastAtsDelta(delta);
+            setLastAtsUpdatedAt(new Date());
+            if (delta !== 0) {
+              toast.success(`ATS ${delta > 0 ? '+' : ''}${delta} → ${score}`);
+            } else {
+              toast.info(`ATS unchanged → ${score}`);
+            }
+          } else {
+            // Fallback: recompute baseline
+            const baseline = await atsLLMApi.baseline({ resumeText: newLatexCode, jobDescription });
+            const score = baseline.overall_score || 0;
+            const status = score >= 70 ? 'pass' : score >= 50 ? 'review' : 'fail';
+            const message = score >= 85
+              ? '🟢 Excellent! Your resume is highly optimized for ATS systems.'
+              : score >= 70
+              ? '🟡 Good! Your resume should pass most ATS systems. Consider the suggestions to improve further.'
+              : score >= 50
+              ? '🟠 Fair. Your resume may be filtered by some ATS systems. Follow the suggestions to improve.'
+              : '🔴 Poor. Your resume needs significant improvements to pass ATS systems.';
+            const mapped: ATSScoreResponse = {
+              score,
+              status,
+              message,
+              breakdown: {
+                primary_keywords: { matched: 0, total: 0, percentage: 0, weight: 0.4 },
+                secondary_keywords: { matched: 0, total: 0, percentage: 0, weight: 0.25 },
+                matching_skills: { matched: 0, missing: 0, total: 0, percentage: 0, weight: 0.15 },
+                format_quality: { score: 100, weight: 0.1 },
+                seniority_alignment: { score: 80, weight: 0.1 },
+              },
+              suggestions: (baseline.critical_gaps || []).slice(0, 3).map(g => ({
+                priority: 'high',
+                category: 'gap',
+                message: g,
+                impact: 'Addresses critical requirement gap',
+              })),
+              tips: baseline.keyword_gaps || [],
+              gaps: baseline.critical_gaps || [],
+            };
+            setAtsData(mapped);
+            setLastAtsDelta(0);
+            setLastAtsUpdatedAt(baseline.updated_at ? new Date(baseline.updated_at) : new Date());
+          }
         } catch (e) {
           console.error('Failed to refresh ATS baseline after edit', e);
         } finally {
@@ -818,6 +881,36 @@ export default function ResumeGenerationPage() {
                   {atsLoading ? 'Checking ATS Score...' : 'Check ATS Score'}
                 </button>
               )}
+              {activeTab === 'resume' && lastAtsDelta !== null && (
+                <button
+                  onClick={async () => {
+                    if (!atsData) {
+                      await handleCheckATSScore();
+                    } else {
+                      setShowATSModal(true);
+                    }
+                  }}
+                  className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold border ml-1 cursor-pointer ${
+                    lastAtsDelta > 0
+                      ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
+                      : lastAtsDelta < 0
+                      ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                  }`}
+                  title={`Last ATS change${lastAtsUpdatedAt ? ' — ' + formatTimeDifference(lastAtsUpdatedAt) + ' ago' : ''} · Click to open details`}
+                >
+                  {lastAtsDelta > 0 ? `+${lastAtsDelta}` : `${lastAtsDelta}`}
+                </button>
+              )}
+              {activeTab === 'resume' && (
+                <button
+                  onClick={() => router.push('/dashboard/configuration')}
+                  className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ml-1 border border-slate-200 dark:border-slate-700 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                  title="View LLM ATS usage"
+                >
+                  View usage
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -847,6 +940,7 @@ export default function ResumeGenerationPage() {
         onClose={() => setShowATSModal(false)}
         atsData={atsData}
         isLoading={atsLoading}
+        lastDelta={lastAtsDelta === null ? undefined : lastAtsDelta}
       />
 
       {/* Selective Optimization Modal */}

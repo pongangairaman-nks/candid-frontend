@@ -2,7 +2,7 @@
 
 import { FileText, AlertCircle, Save, Loader, CheckCircle, Info, Lightbulb } from 'lucide-react';
 import { useResumeStore } from '@/store/resumeStore';
-import { resumeApi, llmConfigApi } from '@/services/api';
+import { resumeApi, llmConfigApi, atsLLMApi, type LlmUsageTotals, type LlmUsageEntry } from '@/services/api';
 import { LLMConfigSection } from '@/components/LLMConfigSection';
 import { useState, useEffect, useRef, memo } from 'react';
 
@@ -28,6 +28,22 @@ export default function ConfigurationPage() {
   const [promptsLoading, setPromptsLoading] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
   const fetchAbortRef = useRef<AbortController | null>(null);
+  const [usageTotals, setUsageTotals] = useState<LlmUsageTotals | null>(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageEntries, setUsageEntries] = useState<LlmUsageEntry[]>([]);
+
+  const fetchUsage = async () => {
+    try {
+      setUsageLoading(true);
+      const usage = await atsLLMApi.usage();
+      setUsageTotals(usage.totals);
+      setUsageEntries(Array.isArray(usage.usage) ? usage.usage : []);
+    } catch {
+      // ignore
+    } finally {
+      setUsageLoading(false);
+    }
+  };
 
   // Consolidated fetch on page load only
   useEffect(() => {
@@ -65,6 +81,9 @@ export default function ConfigurationPage() {
         }
         
         setError(null);
+
+        // Fetch LLM ATS usage (latest resume by default)
+        await fetchUsage();
         setDataFetched(true);
       } catch (err) {
         console.log('Failed to fetch initial data:', err);
@@ -226,6 +245,73 @@ export default function ConfigurationPage() {
         {activeTab === 'llm' && (
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
             <MemoizedLLMConfigSection />
+
+            <div className="mt-6 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">LLM ATS Usage</h3>
+              <button
+                onClick={fetchUsage}
+                disabled={usageLoading}
+                className="px-3 py-1.5 text-sm rounded-md bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
+              >
+                {usageLoading ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
+            <div className="mt-3 grid grid-cols-5 gap-4">
+              <div className="col-span-5 md:col-span-1 p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30">
+                <div className="text-xs text-slate-500 dark:text-slate-400">Total Calls</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : (usageTotals?.total_calls ?? 0)}</div>
+              </div>
+              <div className="col-span-5 md:col-span-1 p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30">
+                <div className="text-xs text-slate-500 dark:text-slate-400">Analysis Calls</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : (usageTotals?.analysis_calls ?? 0)}</div>
+              </div>
+              <div className="col-span-5 md:col-span-1 p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30">
+                <div className="text-xs text-slate-500 dark:text-slate-400">Rescore Calls</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : (usageTotals?.rescore_calls ?? 0)}</div>
+              </div>
+              <div className="col-span-5 md:col-span-1 p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30">
+                <div className="text-xs text-slate-500 dark:text-slate-400">Total Latency</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : `${Math.round((usageTotals?.total_latency_ms ?? 0) / 1000)}s`}</div>
+              </div>
+              <div className="col-span-5 md:col-span-1 p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30">
+                <div className="text-xs text-slate-500 dark:text-slate-400">Stub Calls</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : (usageTotals?.stub_calls ?? 0)}</div>
+              </div>
+            </div>
+
+            {/* Recent Calls Table */}
+            <div className="mt-6">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">Recent Calls</h4>
+              <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    <tr>
+                      <th className="text-left px-4 py-2">Time</th>
+                      <th className="text-left px-4 py-2">Phase</th>
+                      <th className="text-left px-4 py-2">Provider / Model</th>
+                      <th className="text-left px-4 py-2">Latency</th>
+                      <th className="text-left px-4 py-2">Stub</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(usageEntries || []).slice().reverse().slice(0, 10).map((u, idx) => (
+                      <tr key={`${u.ts}-${u.phase}-${idx}`} className="border-t border-slate-200 dark:border-slate-700">
+                        <td className="px-4 py-2 text-slate-900 dark:text-slate-100">{new Date(u.ts).toLocaleString()}</td>
+                        <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{u.phase}</td>
+                        <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{u.provider}{u.model ? ` / ${u.model}` : ''}</td>
+                        <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{typeof u.latency_ms === 'number' ? `${u.latency_ms} ms` : '—'}</td>
+                        <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{u.stub ? 'Yes' : 'No'}</td>
+                      </tr>
+                    ))}
+                    {(!usageEntries || usageEntries.length === 0) && !usageLoading && (
+                      <tr className="border-t border-slate-200 dark:border-slate-700">
+                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400" colSpan={5}>No usage recorded yet.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 

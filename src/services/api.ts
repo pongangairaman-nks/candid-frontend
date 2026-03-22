@@ -72,7 +72,7 @@ export const atsLLMApi = {
   },
 
   rescore: async (
-    params: { resumeId: number; section_key: string; before_text?: string; after_text: string }
+    params: { resumeId: number; section_key?: string; before_text?: string; after_text: string }
   ): Promise<{
     updated_mappings: Array<{ requirement_id: string; match_strength: string; was?: string }>;
     score_delta: number;
@@ -86,8 +86,40 @@ export const atsLLMApi = {
       throw new Error('Failed to re-score LLM ATS');
     }
     return response.data.data;
+  },
+
+  usage: async (
+    resumeId?: number
+  ): Promise<{ usage: LlmUsageEntry[]; totals: LlmUsageTotals } > => {
+    const params = typeof resumeId === 'number' ? { resumeId } : {};
+    const response = await apiClient.get<{ status: string; data: { usage: LlmUsageEntry[]; totals: LlmUsageTotals } }>(
+      `/ats/llm/usage`,
+      { params }
+    );
+    if (response.data?.status !== 'success') {
+      throw new Error('Failed to fetch LLM ATS usage');
+    }
+    return response.data.data;
   }
 };
+
+// LLM usage typing for ATS operations
+export interface LlmUsageEntry {
+  ts: string;
+  phase: 'analysis.extract' | 'analysis.map' | 'rescore' | string;
+  provider: 'openai' | 'claude' | 'gemini' | string;
+  model: string | null;
+  latency_ms?: number;
+  stub?: boolean;
+}
+
+export interface LlmUsageTotals {
+  total_calls: number;
+  analysis_calls: number;
+  rescore_calls: number;
+  total_latency_ms: number;
+  stub_calls: number;
+}
 
 export interface ATSBreakdown {
   primary_keywords: {

@@ -53,9 +53,10 @@ interface ATSScoreModalProps {
     gaps: string[];
   } | null;
   isLoading?: boolean;
+  lastDelta?: number;
 }
 
-export const ATSScoreModal = ({ isOpen, onClose, atsData, isLoading = false }: ATSScoreModalProps) => {
+export const ATSScoreModal = ({ isOpen, onClose, atsData, isLoading = false, lastDelta }: ATSScoreModalProps) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'breakdown' | 'suggestions'>('overview');
 
   if (!isOpen) return null;
@@ -119,6 +120,11 @@ export const ATSScoreModal = ({ isOpen, onClose, atsData, isLoading = false }: A
                       {atsData.score}
                     </span>
                     <span className="text-xl text-slate-600 dark:text-slate-400">/100</span>
+                    {typeof lastDelta === 'number' && (
+                      <span className={`ml-3 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${lastDelta > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : lastDelta < 0 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+                        {lastDelta > 0 ? `+${lastDelta}` : `${lastDelta}`}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="text-right">
