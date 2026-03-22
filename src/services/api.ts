@@ -502,6 +502,7 @@ export interface LLMConfig {
   master_content?: string;
   master_resume_prompt?: string;
   master_cover_letter_prompt?: string;
+  use_latex_template?: boolean;
 }
 
 export const llmConfigApi = {

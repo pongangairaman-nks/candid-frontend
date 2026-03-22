@@ -20,6 +20,7 @@ interface LLMConfigData {
   generator_model: string;
   generator_api_key: string | null;
   master_content: string | null;
+  use_latex_template: boolean;
 }
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -70,6 +71,8 @@ export const LLMConfigSection = () => {
   const [generatorApiKeyVisible, setGeneratorApiKeyVisible] = useState(false);
   const [generatorAvailableModels, setGeneratorAvailableModels] = useState<Model[]>([]);
   const [loadingGeneratorModels, setLoadingGeneratorModels] = useState(false);
+
+  const [useLatexTemplate, setUseLatexTemplate] = useState(true);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
@@ -232,6 +235,7 @@ export const LLMConfigSection = () => {
           if (config.generator_api_key) {
             setGeneratorApiKey(config.generator_api_key);
           }
+          setUseLatexTemplate(config.use_latex_template !== undefined ? config.use_latex_template : true);
           
           // Fetch models for both providers
           if (config.analyzer_api_key) {
@@ -291,6 +295,7 @@ export const LLMConfigSection = () => {
           generator_provider: generatorProvider,
           generator_model: generatorModel,
           generator_api_key: generatorApiKey,
+          use_latex_template: useLatexTemplate,
         }),
       });
 
@@ -305,6 +310,7 @@ export const LLMConfigSection = () => {
           setGeneratorProvider(data.config.generator_provider);
           setGeneratorModel(data.config.generator_model);
           setGeneratorApiKey(data.config.generator_api_key || '');
+          setUseLatexTemplate(data.config.use_latex_template !== undefined ? data.config.use_latex_template : true);
           
           // Invalidate cache so next fetch gets fresh data
           globalConfigCache = { data: null, timestamp: 0 };
@@ -520,6 +526,35 @@ export const LLMConfigSection = () => {
                   <p className="text-sm text-green-700 dark:text-green-300">{successMessage}</p>
                 </div>
               )}
+
+              <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-600">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-1">
+                      Use LaTeX Resume Template
+                    </label>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      {useLatexTemplate 
+                        ? 'Resume will be generated and downloaded as LaTeX/PDF' 
+                        : 'Resume will be displayed and downloaded as plain text'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setUseLatexTemplate(!useLatexTemplate)}
+                    className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+                      useLatexTemplate
+                        ? 'bg-indigo-600 dark:bg-indigo-500'
+                        : 'bg-slate-300 dark:bg-slate-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                        useLatexTemplate ? 'translate-x-7' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
 
               <div className="flex gap-3">
                 <button

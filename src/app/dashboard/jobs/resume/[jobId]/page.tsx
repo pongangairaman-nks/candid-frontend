@@ -6,6 +6,7 @@ import { useResumeStore } from '@/store/resumeStore';
 import { useState, useEffect, useRef } from 'react';
 import { resumeApi, jobApplicationApi, llmConfigApi, type ATSScoreResponse } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
+import { TextPreviewModal } from '@/components/TextPreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
 import { SelectiveOptimizationModal } from '@/components/SelectiveOptimizationModal';
 import { useParams } from 'next/navigation';
@@ -63,6 +64,8 @@ export default function ResumeGenerationPage() {
   const [showOptimizeButton, setShowOptimizeButton] = useState(false);
   const [buttonPosition, setButtonPosition] = useState({ top: 0, left: 0 });
   const [customPrompt, setCustomPrompt] = useState('');
+  const [useLatexTemplate, setUseLatexTemplate] = useState(true);
+  const [plainTextContent, setPlainTextContent] = useState('');
   const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const updateTimestampIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const floatingPanelRef = useRef<HTMLDivElement | null>(null);
@@ -247,6 +250,9 @@ export default function ResumeGenerationPage() {
         if (coverLetterPromptToUse) {
           setCoverLetterPrompt(coverLetterPromptToUse);
         }
+
+        // Load LaTeX template preference from config
+        setUseLatexTemplate(llmConfig.use_latex_template !== undefined ? llmConfig.use_latex_template : true);
       } catch (error) {
         console.error('Failed to fetch data:', error);
         toast.error('Failed to load job application data');
@@ -368,45 +374,81 @@ export default function ResumeGenerationPage() {
   };
 
   const handlePreview = async () => {
-    if (!latexCode) {
-      toast.error('No LaTeX code to preview');
-      return;
-    }
+    if (useLatexTemplate) {
+      // LaTeX mode: generate PDF preview
+      if (!latexCode) {
+        toast.error('No LaTeX code to preview');
+        return;
+      }
 
-    setPdfLoading(true);
-    try {
-      const response = await resumeApi.generatePdf(latexCode);
-      setPdfUrl(response.pdfUrl);
+      setPdfLoading(true);
+      try {
+        const response = await resumeApi.generatePdf(latexCode);
+        setPdfUrl(response.pdfUrl);
+        setShowPreview(true);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to generate preview';
+        toast.error(errorMessage);
+      } finally {
+        setPdfLoading(false);
+      }
+    } else {
+      // Text mode: show text preview in modal
+      if (!plainTextContent && !latexCode) {
+        toast.error('No content to preview');
+        return;
+      }
+      // For text mode, we'll show the content in a simple text preview
       setShowPreview(true);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate preview';
-      toast.error(errorMessage);
-    } finally {
-      setPdfLoading(false);
     }
   };
 
   const handleDownload = async () => {
-    if (!latexCode) {
-      toast.error('No LaTeX code to download');
-      return;
-    }
+    if (useLatexTemplate) {
+      // LaTeX mode: generate and download PDF
+      if (!latexCode) {
+        toast.error('No LaTeX code to download');
+        return;
+      }
 
-    setPdfLoading(true);
-    try {
-      const response = await resumeApi.generatePdf(latexCode);
-      const link = document.createElement('a');
-      link.href = response.pdfUrl;
-      link.download = `${activeTab === 'resume' ? 'resume' : 'cover-letter'}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success('Downloaded successfully!');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to download';
-      toast.error(errorMessage);
-    } finally {
-      setPdfLoading(false);
+      setPdfLoading(true);
+      try {
+        const response = await resumeApi.generatePdf(latexCode);
+        const link = document.createElement('a');
+        link.href = response.pdfUrl;
+        link.download = `${activeTab === 'resume' ? 'resume' : 'cover-letter'}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success('Downloaded successfully!');
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to download';
+        toast.error(errorMessage);
+      } finally {
+        setPdfLoading(false);
+      }
+    } else {
+      // Text mode: download as text file
+      const content = plainTextContent || latexCode;
+      if (!content) {
+        toast.error('No content to download');
+        return;
+      }
+
+      try {
+        const element = document.createElement('a');
+        const file = new Blob([content], { type: 'text/plain' });
+        element.href = URL.createObjectURL(file);
+        element.download = `${activeTab === 'resume' ? 'resume' : 'cover-letter'}.txt`;
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+        URL.revokeObjectURL(element.href);
+        toast.success('Downloaded successfully!');
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to download';
+        toast.error(errorMessage);
+      }
     }
   };
 
@@ -628,7 +670,7 @@ export default function ResumeGenerationPage() {
               <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <div>
                   <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    {activeTab === 'resume' ? 'Resume LaTeX Code' : 'Cover Letter LaTeX Code'}
+                    {activeTab === 'resume' ? 'Resume' : 'Cover Letter'}
                   </label>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Editable • Auto-formatted</p>
                 </div>
@@ -705,10 +747,19 @@ export default function ResumeGenerationPage() {
       )}
 
       {/* Preview Modal */}
-      {showPreview && (
+      {showPreview && useLatexTemplate && pdfUrl && (
         <PreviewModal
           pdfUrl={pdfUrl}
           onClose={() => setShowPreview(false)}
+        />
+      )}
+
+      {showPreview && !useLatexTemplate && (
+        <TextPreviewModal
+          content={plainTextContent || latexCode}
+          title={activeTab === 'resume' ? 'Resume' : 'Cover Letter'}
+          onClose={() => setShowPreview(false)}
+          fileName={activeTab === 'resume' ? 'resume' : 'cover-letter'}
         />
       )}
 
