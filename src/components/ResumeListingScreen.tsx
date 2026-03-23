@@ -392,6 +392,147 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
         </div>
       )}
 
+      {/* Job Application Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl max-w-md w-full">
+            {/* Header */}
+            <div className="border-b border-slate-200 dark:border-slate-700 px-6 py-4">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                {modalMode === 'create' ? 'Create Job Application' : modalMode === 'edit' ? 'Edit Job Application' : 'View Job Application'}
+              </h2>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Company Name
+                </label>
+                <input
+                  type="text"
+                  defaultValue={selectedApplication?.company_name || ''}
+                  disabled={modalMode === 'view'}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Enter company name"
+                  id="company_name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Job Title / Position
+                </label>
+                <input
+                  type="text"
+                  defaultValue={selectedApplication?.position || ''}
+                  disabled={modalMode === 'view'}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Enter job title or position"
+                  id="position"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Job URL
+                </label>
+                <input
+                  type="url"
+                  defaultValue={selectedApplication?.job_url || ''}
+                  disabled={modalMode === 'view'}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="https://example.com/job"
+                  id="job_url"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Company URL
+                </label>
+                <input
+                  type="url"
+                  defaultValue={selectedApplication?.company_url || ''}
+                  disabled={modalMode === 'view'}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="https://example.com"
+                  id="company_url"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Applied Date
+                </label>
+                <input
+                  type="date"
+                  defaultValue={selectedApplication?.applied_date ? new Date(selectedApplication.applied_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
+                  disabled={modalMode === 'view'}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  id="applied_date"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Status
+                </label>
+                <select
+                  defaultValue={selectedApplication?.status || 'applied'}
+                  disabled={modalMode === 'view'}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  id="status"
+                >
+                  <option value="applied">Applied</option>
+                  <option value="screening">Screening</option>
+                  <option value="interview">Interview</option>
+                  <option value="offer">Offer</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="withdrawn">Withdrawn</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 flex gap-3 justify-end">
+              <button
+                onClick={() => setModalOpen(false)}
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium transition-colors"
+              >
+                {modalMode === 'view' ? 'Close' : 'Cancel'}
+              </button>
+              {modalMode !== 'view' && (
+                <button
+                  onClick={() => {
+                    const appliedDateInput = (document.getElementById('applied_date') as HTMLInputElement).value;
+                    const statusInput = (document.getElementById('status') as HTMLSelectElement).value;
+                    const formData: JobApplication = {
+                      id: selectedApplication?.id,
+                      position: (document.getElementById('position') as HTMLInputElement).value,
+                      company_name: (document.getElementById('company_name') as HTMLInputElement).value,
+                      job_url: (document.getElementById('job_url') as HTMLInputElement).value,
+                      company_url: (document.getElementById('company_url') as HTMLInputElement).value,
+                      status: statusInput,
+                      applied_date: new Date(appliedDateInput).toISOString(),
+                      job_description: selectedApplication?.job_description || '',
+                      resume_pdf_url: selectedApplication?.resume_pdf_url,
+                      generated_resume_latex: selectedApplication?.generated_resume_latex,
+                      generated_cover_letter_latex: selectedApplication?.generated_cover_letter_latex,
+                      last_modified_at: new Date().toISOString(),
+                    };
+                    handleModalSubmit(formData);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors"
+                >
+                  {modalMode === 'create' ? 'Create' : 'Update'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

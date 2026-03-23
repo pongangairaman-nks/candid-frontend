@@ -322,6 +322,7 @@ export default function ResumeOptimizationPage() {
           onCheckATS={handleCheckATSScore}
           isGeneratingPDF={pdfLoading}
           isCheckingATS={atsLoading}
+          activeTab={activeTab}
         />
       </div>
 

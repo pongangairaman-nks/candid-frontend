@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Send, Sparkles, Copy, Check, Download, TrendingUp, Zap, ChevronDown, ChevronUp, Eye } from 'lucide-react';
+import { llmConfigApi } from '@/services/api';
 
 interface Suggestion {
   id: string;
@@ -29,6 +30,7 @@ interface OptimizedResumeEditorProps {
   onCheckATS: () => void;
   isGeneratingPDF?: boolean;
   isCheckingATS?: boolean;
+  activeTab?: 'resume' | 'coverLetter';
 }
 
 export const OptimizedResumeEditor = ({
@@ -40,6 +42,7 @@ export const OptimizedResumeEditor = ({
   onCheckATS,
   isGeneratingPDF = false,
   isCheckingATS = false,
+  activeTab = 'resume',
 }: OptimizedResumeEditorProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -55,7 +58,11 @@ export const OptimizedResumeEditor = ({
   const [jdCopied, setJdCopied] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'suggestions' | 'chat'>('suggestions');
+  const [activeRightTab, setActiveRightTab] = useState<'suggestions' | 'chat'>('suggestions');
+  const [llmConfig, setLlmConfig] = useState<{
+    master_resume_prompt?: string;
+    master_cover_letter_prompt?: string;
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -67,6 +74,19 @@ export const OptimizedResumeEditor = ({
   // Auto-focus input
   useEffect(() => {
     inputRef.current?.focus();
+  }, []);
+
+  // Fetch LLM config on mount
+  useEffect(() => {
+    const fetchLlmConfig = async () => {
+      try {
+        const config = await llmConfigApi.getConfig();
+        setLlmConfig(config);
+      } catch (error) {
+        console.error('Error fetching LLM config:', error);
+      }
+    };
+    fetchLlmConfig();
   }, []);
 
   const handleSendMessage = async () => {
@@ -162,6 +182,45 @@ export const OptimizedResumeEditor = ({
 
   const appliedCount = suggestions.filter((s) => s.applied).length;
 
+  const getMasterPrompt = () => {
+    if (activeTab === 'coverLetter') {
+      const prompt = llmConfig?.master_cover_letter_prompt;
+      if (prompt) {
+        return <p className="text-gray-600 whitespace-pre-wrap">{prompt}</p>;
+      }
+      // Fallback if config not loaded
+      return (
+        <>
+          <p className="text-gray-600">You are an expert cover letter writer. Create a compelling cover letter that highlights the candidate&apos;s relevant experience and skills for this specific job opportunity.</p>
+          <p className="text-gray-600 mt-4">Focus on:</p>
+          <ul className="text-gray-600 mt-2 ml-4 list-disc">
+            <li>Demonstrating enthusiasm for the specific role and company</li>
+            <li>Highlighting relevant achievements and experiences</li>
+            <li>Addressing key requirements from the job description</li>
+            <li>Creating a compelling narrative that connects experience to the role</li>
+          </ul>
+        </>
+      );
+    }
+    const prompt = llmConfig?.master_resume_prompt;
+    if (prompt) {
+      return <p className="text-gray-600 whitespace-pre-wrap">{prompt}</p>;
+    }
+    // Fallback if config not loaded
+    return (
+      <>
+        <p className="text-gray-600">You are an expert resume optimizer. Analyze the provided resume against the job description and suggest specific, actionable improvements that will increase the ATS score and improve the candidate&apos;s chances of getting an interview.</p>
+        <p className="text-gray-600 mt-4">Focus on:</p>
+        <ul className="text-gray-600 mt-2 ml-4 list-disc">
+          <li>Keyword alignment with the job description</li>
+          <li>Quantifiable achievements and metrics</li>
+          <li>Relevant skills and experience highlighting</li>
+          <li>ATS-friendly formatting and structure</li>
+        </ul>
+      </>
+    );
+  };
+
   return (
     <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50">
       {/* Top Action Bar */}
@@ -192,51 +251,70 @@ export const OptimizedResumeEditor = ({
             <Eye className="w-4 h-4" />
             <span>Preview</span>
           </button>
-          <button
+          {/* <button
             onClick={onGeneratePDF}
             disabled={isGeneratingPDF}
             className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 transition-all duration-200"
           >
             <Download className="w-4 h-4" />
             <span>Download PDF</span>
-          </button>
+          </button> */}
         </div>
       </div>
 
       {/* Three Column Layout */}
       <div className="flex-1 flex overflow-hidden gap-4 p-4">
-        {/* Left Column: Job Description */}
-        <div className="flex-1 flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden">
-          {/* Header */}
-          <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900">Job Description</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Reference for optimization</p>
+        {/* Left Column: Job Description & Master Prompt */}
+        <div className="flex-1 flex flex-col gap-4">
+          {/* Top: Job Description */}
+          <div className="flex-1 flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden">
+            {/* Header */}
+            <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Job Description</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Reference for optimization</p>
+              </div>
+              <button
+                onClick={handleCopyJD}
+                className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
+                title="Copy job description"
+              >
+                {jdCopied ? (
+                  <Check className="w-4 h-4 text-green-600" />
+                ) : (
+                  <Copy className="w-4 h-4 text-gray-600" />
+                )}
+              </button>
             </div>
-            <button
-              onClick={handleCopyJD}
-              className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
-              title="Copy job description"
-            >
-              {jdCopied ? (
-                <Check className="w-4 h-4 text-green-600" />
-              ) : (
-                <Copy className="w-4 h-4 text-gray-600" />
-              )}
-            </button>
+
+            {/* Content */}
+            <textarea
+              value={jobDescription}
+              onChange={(e) => onJobDescriptionChange(e.target.value)}
+              placeholder="Paste job description here..."
+              className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-white placeholder:text-gray-400"
+            />
+
+            {/* Footer */}
+            <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500">
+              <p>Words: {jobDescription.split(/\s+/).filter((w) => w.length > 0).length}</p>
+            </div>
           </div>
 
-          {/* Content */}
-          <textarea
-            value={jobDescription}
-            onChange={(e) => onJobDescriptionChange(e.target.value)}
-            placeholder="Paste job description here..."
-            className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-white placeholder:text-gray-400"
-          />
+          {/* Bottom: Master Prompt */}
+          <div className="flex-1 flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden">
+            {/* Header */}
+            <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Master Prompt</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Pre-filled optimization instructions</p>
+              </div>
+            </div>
 
-          {/* Footer */}
-          <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500">
-            <p>Words: {jobDescription.split(/\s+/).filter((w) => w.length > 0).length}</p>
+            {/* Content */}
+            <div className="flex-1 overflow-auto px-4 py-4 font-mono text-sm text-gray-700 bg-white whitespace-pre-wrap wrap-break-word">
+              {getMasterPrompt()}
+            </div>
           </div>
         </div>
 
@@ -277,9 +355,9 @@ export const OptimizedResumeEditor = ({
           {/* Tab Navigation */}
           <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center space-x-2">
             <button
-              onClick={() => setActiveTab('suggestions')}
+              onClick={() => setActiveRightTab('suggestions')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                activeTab === 'suggestions'
+                activeRightTab === 'suggestions'
                   ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
@@ -290,9 +368,9 @@ export const OptimizedResumeEditor = ({
               </div>
             </button>
             <button
-              onClick={() => setActiveTab('chat')}
+              onClick={() => setActiveRightTab('chat')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                activeTab === 'chat'
+                activeRightTab === 'chat'
                   ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
@@ -302,7 +380,7 @@ export const OptimizedResumeEditor = ({
           </div>
 
           {/* Content Area */}
-          {activeTab === 'suggestions' ? (
+          {activeRightTab === 'suggestions' ? (
             // Suggestions Panel
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {suggestions.length === 0 ? (
