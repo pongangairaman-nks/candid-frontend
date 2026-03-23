@@ -325,6 +325,37 @@ export const resumeApi = {
       throw error;
     }
   },
+
+  refineSection: async (params: {
+    section_key: string;
+    section_title: string;
+    section_content: string;
+    job_description: string;
+    conversation_history: Array<{ role: string; content: string }>;
+    user_message: string;
+  }): Promise<{ refined_content: string; refinement_suggestion: string; tokens_used: number }> => {
+    try {
+      const response = await apiClient.post<{
+        status: string;
+        refined_content: string;
+        refinement_suggestion: string;
+        tokens_used: number;
+      }>('/resume/refine-section', params);
+
+      if (response.data?.status !== 'success') {
+        throw new Error('Failed to refine section');
+      }
+
+      return {
+        refined_content: response.data.refined_content,
+        refinement_suggestion: response.data.refinement_suggestion,
+        tokens_used: response.data.tokens_used,
+      };
+    } catch (error) {
+      console.error('Section refinement error:', error);
+      throw error;
+    }
+  },
 };
 
 export interface SignupRequest {

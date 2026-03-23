@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, FileText } from 'lucide-react';
+import { Sparkles, FileText, ChevronRight, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useResumeStore } from '@/store/resumeStore';
 import { resumeApi, jobApplicationApi, llmConfigApi, atsLLMApi, type ATSScoreResponse } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
-import { OptimizedResumeEditor } from '@/components/OptimizedResumeEditor';
+import { UnifiedResumeEditor } from '@/components/UnifiedResumeEditor';
 import { useParams } from 'next/navigation';
 
 type TabType = 'resume' | 'coverLetter';
@@ -49,6 +49,7 @@ export default function ResumeOptimizationPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const fetchInitiatedRef = useRef(false);
   const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -308,23 +309,60 @@ export default function ResumeOptimizationPage() {
             ))}
           </div>
 
-          {/* Right: Empty for balance */}
-          <div className="w-20" />
+          {/* Right: Sidebar Toggle */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 text-gray-600"
+            title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+          >
+            <ChevronRight className={`w-5 h-5 transition-transform duration-300 ${sidebarOpen ? 'rotate-180' : ''}`} />
+          </button>
         </div>
       </header>
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        <OptimizedResumeEditor
-          latexCode={latexCode}
-          jobDescription={jobDescription}
-          onJobDescriptionChange={setJobDescription}
-          onLatexChange={setLatexCode}
-          onGeneratePDF={handleGeneratePDF}
-          onCheckATS={handleCheckATSScore}
-          isGeneratingPDF={pdfLoading}
-          isCheckingATS={atsLoading}
-        />
+        {/* Sidebar - Job Description */}
+        <div
+          className={`transition-all duration-300 overflow-hidden flex flex-col bg-gray-50/50 border-r border-gray-200/50 ${
+            sidebarOpen ? 'w-96' : 'w-0'
+          }`}
+        >
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Sidebar Header */}
+            <div className="px-8 py-6 border-b border-gray-200/50">
+              <h2 className="text-sm font-semibold text-gray-900">Job Description</h2>
+              <p className="text-xs text-gray-500 mt-1">Reference for optimization</p>
+            </div>
+
+            {/* Textarea */}
+            <textarea
+              value={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value)}
+              placeholder="Paste job description here..."
+              className="flex-1 px-8 py-6 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-transparent placeholder:text-gray-400"
+            />
+
+            {/* Footer */}
+            <div className="px-8 py-4 border-t border-gray-200/50 bg-white/50 flex items-center space-x-2 text-xs text-gray-500">
+              <AlertCircle className="w-4 h-4" />
+              <span>Auto-saves</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Editor Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <UnifiedResumeEditor
+            latexCode={latexCode}
+            jobDescription={jobDescription}
+            onLatexChange={setLatexCode}
+            onGeneratePDF={handleGeneratePDF}
+            onCheckATS={handleCheckATSScore}
+            isGeneratingPDF={pdfLoading}
+            isCheckingATS={atsLoading}
+          />
+        </div>
       </div>
 
       {/* Modals */}

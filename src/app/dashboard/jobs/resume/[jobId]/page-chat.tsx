@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, FileText } from 'lucide-react';
+import { Sparkles, Eye, Download, TrendingUp, FileText, ChevronRight, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useResumeStore } from '@/store/resumeStore';
 import { resumeApi, jobApplicationApi, llmConfigApi, atsLLMApi, type ATSScoreResponse } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
-import { OptimizedResumeEditor } from '@/components/OptimizedResumeEditor';
+import { ChatLikeResumeEditor } from '@/components/ChatLikeResumeEditor';
 import { useParams } from 'next/navigation';
 
 type TabType = 'resume' | 'coverLetter';
@@ -49,6 +49,7 @@ export default function ResumeOptimizationPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const fetchInitiatedRef = useRef(false);
   const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -200,6 +201,30 @@ export default function ResumeOptimizationPage() {
     }
   };
 
+  const handleDownload = async () => {
+    if (!latexCode) {
+      toast.error('No LaTeX code to download');
+      return;
+    }
+
+    setPdfLoading(true);
+    try {
+      const response = await resumeApi.generatePdf(latexCode);
+      const link = document.createElement('a');
+      link.href = response.pdfUrl;
+      link.download = `${activeTab === 'resume' ? 'resume' : 'cover-letter'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Downloaded successfully!');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to download';
+      toast.error(errorMessage);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const handleCheckATSScore = async () => {
     if (!latexCode || !jobDescription) {
       toast.error('Please generate resume and provide job description');
@@ -262,7 +287,7 @@ export default function ResumeOptimizationPage() {
     return (
       <div className="flex items-center justify-center h-screen bg-white">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-blue-50 to-indigo-50 mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-linear-to-br from-blue-50 to-indigo-50 mb-4">
             <Sparkles className="w-8 h-8 text-blue-600 animate-pulse" />
           </div>
           <p className="text-gray-700 font-medium">Loading your resume...</p>
@@ -279,7 +304,7 @@ export default function ResumeOptimizationPage() {
         <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between">
           {/* Left: Title & Status */}
           <div className="flex items-center space-x-3">
-            <div className="p-2.5 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50">
+            <div className="p-2.5 rounded-lg bg-linear-to-br from-blue-50 to-indigo-50">
               <FileText className="w-5 h-5 text-blue-600" />
             </div>
             <div>
@@ -308,23 +333,84 @@ export default function ResumeOptimizationPage() {
             ))}
           </div>
 
-          {/* Right: Empty for balance */}
-          <div className="w-20" />
+          {/* Right: Action Buttons */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleCheckATSScore}
+              disabled={atsLoading}
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-linear-to-r from-purple-600 to-indigo-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              <TrendingUp className="w-4 h-4" />
+              <span>ATS Score</span>
+            </button>
+            <button
+              onClick={handleGeneratePDF}
+              disabled={pdfLoading}
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-linear-to-r from-blue-600 to-cyan-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              <Eye className="w-4 h-4" />
+              <span>Preview</span>
+            </button>
+            <button
+              onClick={handleDownload}
+              disabled={pdfLoading}
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-linear-to-r from-emerald-600 to-teal-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download</span>
+            </button>
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 text-gray-600"
+              title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+            >
+              <ChevronRight className={`w-5 h-5 transition-transform duration-300 ${sidebarOpen ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        <OptimizedResumeEditor
-          latexCode={latexCode}
-          jobDescription={jobDescription}
-          onJobDescriptionChange={setJobDescription}
-          onLatexChange={setLatexCode}
-          onGeneratePDF={handleGeneratePDF}
-          onCheckATS={handleCheckATSScore}
-          isGeneratingPDF={pdfLoading}
-          isCheckingATS={atsLoading}
-        />
+        {/* Sidebar - Job Description */}
+        <div
+          className={`transition-all duration-300 overflow-hidden flex flex-col bg-gray-50/50 border-r border-gray-200/50 ${
+            sidebarOpen ? 'w-96' : 'w-0'
+          }`}
+        >
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Sidebar Header */}
+            <div className="px-8 py-6 border-b border-gray-200/50">
+              <h2 className="text-sm font-semibold text-gray-900">Job Description</h2>
+              <p className="text-xs text-gray-500 mt-1">Reference for optimization</p>
+            </div>
+
+            {/* Textarea */}
+            <textarea
+              value={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value)}
+              placeholder="Paste job description here..."
+              className="flex-1 px-8 py-6 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-transparent placeholder:text-gray-400"
+            />
+
+            {/* Footer */}
+            <div className="px-8 py-4 border-t border-gray-200/50 bg-white/50 flex items-center space-x-2 text-xs text-gray-500">
+              <AlertCircle className="w-4 h-4" />
+              <span>Auto-saves</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Editor Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <ChatLikeResumeEditor
+            latexCode={latexCode}
+            jobDescription={jobDescription}
+            onLatexChange={setLatexCode}
+            onGeneratePDF={handleGeneratePDF}
+            isGeneratingPDF={pdfLoading}
+          />
+        </div>
       </div>
 
       {/* Modals */}

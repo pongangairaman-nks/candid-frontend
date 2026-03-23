@@ -7,7 +7,7 @@ import { useResumeStore } from '@/store/resumeStore';
 import { resumeApi, jobApplicationApi, llmConfigApi, atsLLMApi, type ATSScoreResponse } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
-import { OptimizedResumeEditor } from '@/components/OptimizedResumeEditor';
+import { ThreeColumnResumeEditor } from '@/components/ThreeColumnResumeEditor';
 import { useParams } from 'next/navigation';
 
 type TabType = 'resume' | 'coverLetter';
@@ -315,7 +315,7 @@ export default function ResumeOptimizationPage() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        <OptimizedResumeEditor
+        <ThreeColumnResumeEditor
           latexCode={latexCode}
           jobDescription={jobDescription}
           onJobDescriptionChange={setJobDescription}
