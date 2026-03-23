@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, Copy, Check, Download, TrendingUp, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import { Send, Sparkles, Copy, Check, Download, TrendingUp, Zap, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 
 interface Suggestion {
   id: string;
@@ -183,6 +183,14 @@ export const OptimizedResumeEditor = ({
           >
             <TrendingUp className="w-4 h-4" />
             <span>ATS Score</span>
+          </button>
+          <button
+            onClick={onGeneratePDF}
+            disabled={isGeneratingPDF}
+            className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium hover:shadow-lg hover:shadow-blue-500/20 disabled:opacity-50 transition-all duration-200"
+          >
+            <Eye className="w-4 h-4" />
+            <span>Preview</span>
           </button>
           <button
             onClick={onGeneratePDF}

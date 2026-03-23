@@ -5,8 +5,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 import { jobApplicationApi, JobApplication } from '@/services/api';
-import { ResumeDetailsModal } from './ResumeDetailsModal';
-import { StatusDropdown } from './StatusDropdown';
 
 type ResumeListingScreenProps = Record<string, never>;
 
@@ -266,12 +264,19 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusDropdown
+                      <select
                         value={app.status}
-                        onChange={(status) => app.id && handleStatusChange(app.id, status)}
-                        statusColors={STATUS_COLORS}
-                        statusOptions={STATUS_OPTIONS}
-                      />
+                        onChange={(e) => app.id && handleStatusChange(app.id, e.target.value)}
+                        className="px-3 py-1 rounded-full text-xs font-medium border-0 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      >
+                        <option value="applied">Applied</option>
+                        <option value="screening">Screening</option>
+                        <option value="interview">Interview</option>
+                        <option value="offer">Offer</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="accepted">Accepted</option>
+                        <option value="withdrawn">Withdrawn</option>
+                      </select>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
                       {app.applied_date ? new Date(app.applied_date).toLocaleDateString() : '-'}
@@ -387,14 +392,6 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
         </div>
       )}
 
-      {/* Modal */}
-      <ResumeDetailsModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={handleModalSubmit}
-        initialData={selectedApplication}
-        mode={modalMode}
-      />
     </div>
   );
 }

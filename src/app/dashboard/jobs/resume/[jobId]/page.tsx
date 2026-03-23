@@ -307,6 +307,7 @@ export default function ResumeOptimizationPage() {
               </button>
             ))}
           </div>
+
         </div>
       </header>
 

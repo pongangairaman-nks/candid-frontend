@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Save, AlertCircle, CheckCircle, Loader } from 'lucide-react';
-import { CustomSelect } from './CustomSelect';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -434,35 +433,42 @@ export const LLMConfigSection = () => {
                 </h3>
 
                 <div className="space-y-4">
-                  <CustomSelect
-                    label="Provider"
-                    options={providers.length > 0 ? providers : [
-                      { id: 'claude', name: 'Claude (Anthropic)', provider: 'claude' },
-                      { id: 'openai', name: 'OpenAI', provider: 'openai' },
-                      { id: 'gemini', name: 'Gemini (Google)', provider: 'gemini' },
-                    ]}
-                    value={generatorProvider}
-                    onChange={(newProvider) => {
-                      setGeneratorProvider(newProvider);
-                      setGeneratorModel(AVAILABLE_MODELS[newProvider]?.[0]?.id || '');
-                      setGeneratorAvailableModels([]);
-                      // Fetch models for the selected provider
-                      fetchModelsForProvider('generator', newProvider);
-                    }}
-                    description="Choose the LLM provider for generating tailored resumes"
-                  />
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Provider</label>
+                    <select
+                      value={generatorProvider}
+                      onChange={(e) => {
+                        setGeneratorProvider(e.target.value);
+                        setGeneratorModel(AVAILABLE_MODELS[e.target.value]?.[0]?.id || '');
+                        setGeneratorAvailableModels([]);
+                        fetchModelsForProvider('generator', e.target.value);
+                      }}
+                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      <option value="claude">Claude (Anthropic)</option>
+                      <option value="openai">OpenAI</option>
+                      <option value="gemini">Gemini (Google)</option>
+                    </select>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose the LLM provider for generating tailored resumes</p>
+                  </div>
 
-                  <CustomSelect
-                    label="Model"
-                    options={generatorModels}
-                    value={generatorModel}
-                    onChange={(newModel) => setGeneratorModel(newModel)}
-                    description={
-                      generatorProvider === 'claude'
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Model</label>
+                    <select
+                      value={generatorModel}
+                      onChange={(e) => setGeneratorModel(e.target.value)}
+                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      {generatorModels.map((model) => (
+                        <option key={model.id} value={model.id}>{model.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      {generatorProvider === 'claude'
                         ? 'Opus 4.1 recommended for best resume quality and ATS score'
-                        : 'Flash models are free tier with daily limits'
-                    }
-                  />
+                        : 'Flash models are free tier with daily limits'}
+                    </p>
+                  </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
@@ -498,35 +504,42 @@ export const LLMConfigSection = () => {
                 </h3>
 
                 <div className="space-y-4">
-                  <CustomSelect
-                    label="Provider"
-                    options={providers.length > 0 ? providers : [
-                      { id: 'claude', name: 'Claude (Anthropic)', provider: 'claude' },
-                      { id: 'openai', name: 'OpenAI', provider: 'openai' },
-                      { id: 'gemini', name: 'Gemini (Google)', provider: 'gemini' },
-                    ]}
-                    value={analyzerProvider}
-                    onChange={(newProvider) => {
-                      setAnalyzerProvider(newProvider);
-                      setAnalyzerModel(AVAILABLE_MODELS[newProvider]?.[0]?.id || '');
-                      setAnalyzerAvailableModels([]);
-                      // Fetch models for the selected provider
-                      fetchModelsForProvider('analyzer', newProvider);
-                    }}
-                    description="Choose the LLM provider for analyzing job descriptions"
-                  />
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Provider</label>
+                    <select
+                      value={analyzerProvider}
+                      onChange={(e) => {
+                        setAnalyzerProvider(e.target.value);
+                        setAnalyzerModel(AVAILABLE_MODELS[e.target.value]?.[0]?.id || '');
+                        setAnalyzerAvailableModels([]);
+                        fetchModelsForProvider('analyzer', e.target.value);
+                      }}
+                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="claude">Claude (Anthropic)</option>
+                      <option value="openai">OpenAI</option>
+                      <option value="gemini">Gemini (Google)</option>
+                    </select>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose the LLM provider for analyzing job descriptions</p>
+                  </div>
 
-                  <CustomSelect
-                    label="Model"
-                    options={analyzerModels}
-                    value={analyzerModel}
-                    onChange={(newModel) => setAnalyzerModel(newModel)}
-                    description={
-                      analyzerProvider === 'claude'
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Model</label>
+                    <select
+                      value={analyzerModel}
+                      onChange={(e) => setAnalyzerModel(e.target.value)}
+                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      {analyzerModels.map((model) => (
+                        <option key={model.id} value={model.id}>{model.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      {analyzerProvider === 'claude'
                         ? 'Opus 4.1 recommended for best analysis quality'
-                        : 'Flash models are free tier with daily limits'
-                    }
-                  />
+                        : 'Flash models are free tier with daily limits'}
+                    </p>
+                  </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
