@@ -4,7 +4,7 @@ import { FileText, AlertCircle, Save, Loader, CheckCircle, Info, Lightbulb } fro
 import { useResumeStore } from '@/store/resumeStore';
 import { resumeApi, llmConfigApi, atsLLMApi, type LlmUsageTotals, type LlmUsageEntry } from '@/services/api';
 import { LLMConfigSection } from '@/components/LLMConfigSection';
-import { useState, useEffect, useRef, memo } from 'react';
+import { useState, useEffect, useRef, memo, useCallback } from 'react';
 
 type TabType = 'llm' | 'template' | 'content' | 'prompts';
 
@@ -31,39 +31,51 @@ export default function ConfigurationPage() {
   const [usageTotals, setUsageTotals] = useState<LlmUsageTotals | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageEntries, setUsageEntries] = useState<LlmUsageEntry[]>([]);
+  const fetchInitiatedRef = useRef(false);
 
   const fetchUsage = async () => {
+    console.log('📡 [ConfigurationPage] fetchUsage called');
     try {
       setUsageLoading(true);
       const usage = await atsLLMApi.usage();
+      console.log('✅ [ConfigurationPage] Usage fetched');
       setUsageTotals(usage.totals);
       setUsageEntries(Array.isArray(usage.usage) ? usage.usage : []);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('❌ [ConfigurationPage] Error fetching usage:', err);
     } finally {
       setUsageLoading(false);
     }
   };
 
-  // Consolidated fetch on page load only
+  // Consolidated fetch on page load only (skip llmConfig since LLMConfigSection handles it)
   useEffect(() => {
-    if (dataFetched) return; // Prevent duplicate fetches
+    console.log('🔍 [ConfigurationPage] fetchAllData effect triggered, initiated:', fetchInitiatedRef.current);
+    if (fetchInitiatedRef.current) {
+      console.log('⏭️ [ConfigurationPage] Skipping fetchAllData - already initiated');
+      return;
+    }
 
     const fetchAllData = async () => {
+      console.log('📡 [ConfigurationPage] Starting fetchAllData...');
       try {
         // Abort previous requests if any
         if (fetchAbortRef.current) {
+          console.log('🛑 [ConfigurationPage] Aborting previous requests');
           fetchAbortRef.current.abort();
         }
         fetchAbortRef.current = new AbortController();
 
-        // Fetch all data in parallel
+        // Fetch master templates and config in parallel
+        // Note: LLMConfigSection handles llmConfig fetch, so we only fetch templates here
+        console.log('📦 [ConfigurationPage] Fetching master templates and config...');
         const [masterTemplateRes, masterCoverLetterRes, llmConfigRes] = await Promise.all([
           resumeApi.getMasterTemplate(),
           resumeApi.getMasterCoverLetterTemplate(),
           llmConfigApi.getConfig(),
         ]);
 
+        console.log('✅ [ConfigurationPage] All data fetched successfully');
         setMasterDocument(masterTemplateRes.latexCode);
         setMasterCoverLetter(masterCoverLetterRes.latexCode);
         
@@ -83,24 +95,28 @@ export default function ConfigurationPage() {
         setError(null);
 
         // Fetch LLM ATS usage (latest resume by default)
+        console.log('📊 [ConfigurationPage] Fetching LLM ATS usage...');
         await fetchUsage();
         setDataFetched(true);
       } catch (err) {
-        console.log('Failed to fetch initial data:', err);
+        console.error('❌ [ConfigurationPage] Failed to fetch initial data:', err);
         setDataFetched(true);
       }
     };
 
+    fetchInitiatedRef.current = true;
+    console.log('🚀 [ConfigurationPage] Setting fetchInitiatedRef to true');
     fetchAllData();
 
     // Cleanup on unmount
     return () => {
       if (fetchAbortRef.current) {
+        console.log('🧹 [ConfigurationPage] Cleanup: Aborting requests on unmount');
         fetchAbortRef.current.abort();
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataFetched]);
+  }, []);
 
   const handleSave = async () => {
     if (!masterDocument.trim()) {

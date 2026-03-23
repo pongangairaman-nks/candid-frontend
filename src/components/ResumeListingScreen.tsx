@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, Edit2, Eye, Download, Trash2, Zap, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 import { jobApplicationApi, JobApplication } from '@/services/api';
@@ -30,12 +30,9 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
   const [updatingStatusId, setUpdatingStatusId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const fetchInitiatedRef = useRef(false);
 
-  useEffect(() => {
-    fetchApplications();
-  }, []);
-
-  const fetchApplications = async () => {
+  const fetchApplications = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await jobApplicationApi.getAll();
@@ -46,7 +43,14 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!fetchInitiatedRef.current) {
+      fetchInitiatedRef.current = true;
+      fetchApplications();
+    }
+  }, [fetchApplications]);
 
   const handleCreateNew = () => {
     setSelectedApplication(undefined);

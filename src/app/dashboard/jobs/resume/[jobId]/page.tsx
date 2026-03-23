@@ -3,7 +3,7 @@
 import { Sparkles, Eye, Download, TrendingUp, FileText, Mail, Loader } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useResumeStore } from '@/store/resumeStore';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { resumeApi, jobApplicationApi, llmConfigApi, atsLLMApi, type ATSScoreResponse } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
 import { TextPreviewModal } from '@/components/TextPreviewModal';
@@ -122,6 +122,7 @@ export default function ResumeGenerationPage() {
   const updateTimestampIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const floatingPanelRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const fetchInitiatedRef = useRef(false);
 
   // Handle click outside floating panel to close it
   useEffect(() => {
@@ -318,7 +319,8 @@ export default function ResumeGenerationPage() {
       }
     };
 
-    if (jobId) {
+    if (jobId && !fetchInitiatedRef.current) {
+      fetchInitiatedRef.current = true;
       fetchData();
     }
   }, [jobId, setMasterDocument, setJobDescription, setLatexCode]);

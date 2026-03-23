@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Save, AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import { CustomSelect } from './CustomSelect';
 
@@ -79,25 +79,42 @@ export const LLMConfigSection = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  const fetchProvidersInitiatedRef = useRef(false);
+  const fetchConfigInitiatedRef = useRef(false);
+  const isInitialLoadRef = useRef(true);
+  const providerEffectsCountRef = useRef(0);
+
   // Fetch providers on mount
   useEffect(() => {
+    console.log('🔍 [LLMConfigSection] fetchProviders effect triggered, initiated:', fetchProvidersInitiatedRef.current);
+    if (fetchProvidersInitiatedRef.current) {
+      console.log('⏭️ [LLMConfigSection] Skipping fetchProviders - already initiated');
+      return;
+    }
+
     const fetchProviders = async () => {
+      console.log('📡 [LLMConfigSection] Starting fetchProviders...');
       try {
         const response = await fetch(`${API_BASE_URL}/llm/providers`);
+        console.log('📊 [LLMConfigSection] fetchProviders response status:', response.status);
         if (response.ok) {
           const data = await response.json();
           setProviders(data);
-          console.log(`✅ Fetched ${data.length} providers`);
+          console.log(`✅ [LLMConfigSection] Fetched ${data.length} providers`);
         }
       } catch (error) {
-        console.error('❌ Error fetching providers:', error);
+        console.error('❌ [LLMConfigSection] Error fetching providers:', error);
       }
     };
+
+    fetchProvidersInitiatedRef.current = true;
+    console.log('🚀 [LLMConfigSection] Setting fetchProvidersInitiatedRef to true');
     fetchProviders();
   }, []);
 
   // Fetch models for a specific provider using backend's saved API key
   const fetchModelsForProvider = async (type: 'analyzer' | 'generator', selectedProvider: string) => {
+    console.log(`🔍 [LLMConfigSection] fetchModelsForProvider called: type=${type}, provider=${selectedProvider}`);
     try {
       if (type === 'analyzer') {
         setLoadingAnalyzerModels(true);
@@ -107,7 +124,7 @@ export const LLMConfigSection = () => {
 
       const token = localStorage.getItem('authToken');
       if (!token) {
-        console.warn('⚠️ No auth token found');
+        console.warn('⚠️ [LLMConfigSection] No auth token found');
         const defaultModels = AVAILABLE_MODELS[selectedProvider] || [];
         if (type === 'analyzer') {
           setAnalyzerAvailableModels(defaultModels);
@@ -118,7 +135,7 @@ export const LLMConfigSection = () => {
       }
 
       const url = `${API_BASE_URL}/llm/models-for-user/${selectedProvider}`;
-      console.log(`🔍 Fetching models for ${type} (${selectedProvider}) from backend`);
+      console.log(`� [LLMConfigSection] Fetching models for ${type} (${selectedProvider}) from: ${url}`);
       
       const response = await fetch(url, {
         headers: {
@@ -126,17 +143,19 @@ export const LLMConfigSection = () => {
         },
       });
       
+      console.log(`📊 [LLMConfigSection] Models response status for ${type} (${selectedProvider}):`, response.status);
+      
       if (response.ok) {
         const data = await response.json();
         if (data.models && data.models.length > 0) {
-          console.log(`✅ Fetched ${data.models.length} models for ${selectedProvider} (source: ${data.source})`);
+          console.log(`✅ [LLMConfigSection] Fetched ${data.models.length} models for ${selectedProvider} (source: ${data.source})`);
           if (type === 'analyzer') {
             setAnalyzerAvailableModels(data.models);
           } else {
             setGeneratorAvailableModels(data.models);
           }
         } else {
-          console.warn(`⚠️ No models returned for ${selectedProvider}, using defaults`);
+          console.warn(`⚠️ [LLMConfigSection] No models returned for ${selectedProvider}, using defaults`);
           const defaultModels = AVAILABLE_MODELS[selectedProvider] || [];
           if (type === 'analyzer') {
             setAnalyzerAvailableModels(defaultModels);
@@ -145,7 +164,7 @@ export const LLMConfigSection = () => {
           }
         }
       } else {
-        console.warn(`⚠️ Failed to fetch models for ${selectedProvider}, using defaults`);
+        console.warn(`⚠️ [LLMConfigSection] Failed to fetch models for ${selectedProvider} (status: ${response.status}), using defaults`);
         const defaultModels = AVAILABLE_MODELS[selectedProvider] || [];
         if (type === 'analyzer') {
           setAnalyzerAvailableModels(defaultModels);
@@ -154,7 +173,7 @@ export const LLMConfigSection = () => {
         }
       }
     } catch (error) {
-      console.error(`❌ Error fetching models for ${selectedProvider}:`, error);
+      console.error(`❌ [LLMConfigSection] Error fetching models for ${selectedProvider}:`, error);
       const defaultModels = AVAILABLE_MODELS[selectedProvider] || [];
       if (type === 'analyzer') {
         setAnalyzerAvailableModels(defaultModels);
@@ -172,12 +191,20 @@ export const LLMConfigSection = () => {
 
   // Load config from backend on mount with caching
   useEffect(() => {
+    console.log('🔍 [LLMConfigSection] fetchConfig effect triggered, initiated:', fetchConfigInitiatedRef.current); // Force rebuild
+    if (fetchConfigInitiatedRef.current) {
+      console.log('⏭️ [LLMConfigSection] Skipping fetchConfig - already initiated');
+      return;
+    }
+
     const fetchConfig = async () => {
+      console.log('📡 [LLMConfigSection] Starting fetchConfig...');
       try {
         setIsFetching(true);
         const token = localStorage.getItem('authToken');
 
         if (!token) {
+          console.warn('⚠️ [LLMConfigSection] No auth token found');
           setIsFetching(false);
           return;
         }
@@ -185,6 +212,7 @@ export const LLMConfigSection = () => {
         // Check cache first
         const now = Date.now();
         if (globalConfigCache.data && now - globalConfigCache.timestamp < CACHE_DURATION) {
+          console.log('💾 [LLMConfigSection] Using cached config (cache age:', now - globalConfigCache.timestamp, 'ms)');
           // Use cached data
           const config = globalConfigCache.data;
           setAnalyzerProvider(config.analyzer_provider);
@@ -202,14 +230,18 @@ export const LLMConfigSection = () => {
         }
 
         // Fetch from backend if cache expired
+        console.log('🌐 [LLMConfigSection] Cache expired or empty, fetching from backend...');
         const response = await fetch(`${API_BASE_URL}/llm/config`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
+        console.log('📊 [LLMConfigSection] Config response status:', response.status);
+
         if (response.ok) {
           const config = await response.json();
+          console.log('✅ [LLMConfigSection] Config fetched successfully');
           
           // Use the saved provider and model directly (no validation against static list)
           // Models are now dynamically fetched, so we trust the saved values
@@ -224,6 +256,7 @@ export const LLMConfigSection = () => {
             data: config,
             timestamp: now,
           };
+          console.log('💾 [LLMConfigSection] Config cached');
 
           setAnalyzerProvider(analyzerProvider);
           setAnalyzerModel(analyzerModel);
@@ -237,36 +270,56 @@ export const LLMConfigSection = () => {
           }
           // Phase 1: Lock LaTeX mode ON regardless of stored value
           setUseLatexTemplate(true);
-          
-          // Fetch models for both providers
-          if (config.analyzer_api_key) {
-            await fetchModelsForProvider('analyzer', analyzerProvider);
-          }
-          if (config.generator_api_key) {
-            await fetchModelsForProvider('generator', generatorProvider);
-          }
         } else {
-          console.warn('⚠️ Failed to fetch config, status:', response.status);
+          console.warn('⚠️ [LLMConfigSection] Failed to fetch config, status:', response.status);
         }
       } catch (error) {
-        console.error('❌ Failed to fetch config:', error);
+        console.error('❌ [LLMConfigSection] Failed to fetch config:', error);
       } finally {
         setIsFetching(false);
       }
     };
 
+    fetchConfigInitiatedRef.current = true;
+    console.log('🚀 [LLMConfigSection] Setting fetchConfigInitiatedRef to true');
     fetchConfig();
   }, []);
 
-  // Fetch models when provider changes
+  // Fetch models when provider changes (skip during initial load)
   useEffect(() => {
+    console.log('🔍 [LLMConfigSection] analyzerProvider effect triggered, isInitialLoad:', isInitialLoadRef.current, 'provider:', analyzerProvider);
+    if (isInitialLoadRef.current) {
+      console.log('⏭️ [LLMConfigSection] Skipping analyzerProvider effect - initial load');
+      providerEffectsCountRef.current += 1;
+      console.log('📊 [LLMConfigSection] Provider effects count:', providerEffectsCountRef.current);
+      // Reset isInitialLoadRef only after both provider effects have run once
+      if (providerEffectsCountRef.current >= 2) {
+        console.log('✅ [LLMConfigSection] Both provider effects ran during initial load, setting isInitialLoadRef to false');
+        isInitialLoadRef.current = false;
+      }
+      return;
+    }
     if (analyzerProvider) {
+      console.log('📡 [LLMConfigSection] analyzerProvider changed, fetching models for:', analyzerProvider);
       fetchModelsForProvider('analyzer', analyzerProvider);
     }
   }, [analyzerProvider]);
 
   useEffect(() => {
+    console.log('🔍 [LLMConfigSection] generatorProvider effect triggered, isInitialLoad:', isInitialLoadRef.current, 'provider:', generatorProvider);
+    if (isInitialLoadRef.current) {
+      console.log('⏭️ [LLMConfigSection] Skipping generatorProvider effect - initial load');
+      providerEffectsCountRef.current += 1;
+      console.log('📊 [LLMConfigSection] Provider effects count:', providerEffectsCountRef.current);
+      // Reset isInitialLoadRef only after both provider effects have run once
+      if (providerEffectsCountRef.current >= 2) {
+        console.log('✅ [LLMConfigSection] Both provider effects ran during initial load, setting isInitialLoadRef to false');
+        isInitialLoadRef.current = false;
+      }
+      return;
+    }
     if (generatorProvider) {
+      console.log('📡 [LLMConfigSection] generatorProvider changed, fetching models for:', generatorProvider);
       fetchModelsForProvider('generator', generatorProvider);
     }
   }, [generatorProvider]);
