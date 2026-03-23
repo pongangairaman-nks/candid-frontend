@@ -2,13 +2,16 @@
 
 import { FileText, Settings, LogOut, Menu, X, Zap } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-export const NavigationSidebar = () => {
+interface NavigationSidebarProps {
+  isOpen: boolean;
+  onToggle: (open: boolean) => void;
+}
+
+export const NavigationSidebar = ({ isOpen, onToggle }: NavigationSidebarProps) => {
   const { user, logout } = useAuthStore();
-  const [isOpen, setIsOpen] = useState(true);
   const pathname = usePathname();
 
   const navItems = [
@@ -33,7 +36,7 @@ export const NavigationSidebar = () => {
     <>
       {/* Mobile Toggle */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => onToggle(!isOpen)}
         className="fixed top-4 left-4 z-50 md:hidden p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
       >
         {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -43,7 +46,7 @@ export const NavigationSidebar = () => {
       <div
         className={`fixed left-0 top-0 h-screen w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:translate-x-0 z-40`}
+        } z-40`}
       >
         {/* Logo */}
         <div className="p-6 border-b border-slate-200 dark:border-slate-700">
@@ -67,7 +70,7 @@ export const NavigationSidebar = () => {
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => setIsOpen(false)}
+                onClick={() => onToggle(false)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   active
                     ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium'
@@ -105,7 +108,7 @@ export const NavigationSidebar = () => {
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-30 md:hidden"
-          onClick={() => setIsOpen(false)}
+          onClick={() => onToggle(false)}
         />
       )}
     </>

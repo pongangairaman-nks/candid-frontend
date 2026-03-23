@@ -276,7 +276,7 @@ export default function ResumeOptimizationPage() {
     <div className="h-screen flex flex-col bg-white">
       {/* Header */}
       <header className="border-b border-gray-200/50 bg-white/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between">
+        <div className="w-full px-8 py-5 flex items-center justify-between">
           {/* Left: Title & Status */}
           <div className="flex items-center space-x-3">
             <div className="p-2.5 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50">
@@ -307,9 +307,6 @@ export default function ResumeOptimizationPage() {
               </button>
             ))}
           </div>
-
-          {/* Right: Empty for balance */}
-          <div className="w-20" />
         </div>
       </header>
 
