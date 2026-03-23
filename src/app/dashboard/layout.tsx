@@ -2,7 +2,7 @@
 
 import { NavigationSidebar, Header } from '@/components/Navigation';
 import { useAuthStore } from '@/store/authStore';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Loader } from 'lucide-react';
 
@@ -13,7 +13,25 @@ export default function DashboardLayout({
 }) {
   const { isAuthenticated, initializeAuth } = useAuthStore();
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const pathname = usePathname();
+  
+  // Initialize sidebar state from localStorage with default true
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedState = localStorage.getItem('sidebarOpen');
+      return savedState !== null ? JSON.parse(savedState) : true;
+    }
+    return true;
+  });
+  
+  // Check if we're on a resume page
+  const isResumePage = pathname.includes('/resume/');
+  const showHeader = !isResumePage;
+
+  // Save sidebar state to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('sidebarOpen', JSON.stringify(sidebarOpen));
+  }, [sidebarOpen]);
 
   useEffect(() => {
     initializeAuth();
@@ -42,8 +60,8 @@ export default function DashboardLayout({
   return (
     <div className="flex h-screen bg-white dark:bg-slate-900">
       <NavigationSidebar isOpen={sidebarOpen} onToggle={setSidebarOpen} />
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'md:ml-64' : 'md:ml-0'}`}>
-        <Header sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'md:ml-64' : 'md:ml-20'}`}>
+        {showHeader && <Header sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />}
         <main className="flex-1 overflow-auto">
           {children}
         </main>
