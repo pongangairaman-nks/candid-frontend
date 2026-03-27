@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, Copy, Check, Download, TrendingUp, Zap, ChevronDown, ChevronUp, Eye } from 'lucide-react';
-import { llmConfigApi } from '@/services/api';
+import { Send, Sparkles, Copy, Check, Download, TrendingUp, Zap, ChevronDown, ChevronUp, Eye, Wand2 } from 'lucide-react';
+import { llmConfigApi, resumeApi } from '@/services/api';
+import { toast } from 'react-toastify';
 
 interface Suggestion {
   id: string;
@@ -54,6 +55,7 @@ export const OptimizedResumeEditor = ({
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
   const [latexCopied, setLatexCopied] = useState(false);
   const [jdCopied, setJdCopied] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -62,7 +64,9 @@ export const OptimizedResumeEditor = ({
   const [llmConfig, setLlmConfig] = useState<{
     master_resume_prompt?: string;
     master_cover_letter_prompt?: string;
+    master_content?: string;
   } | null>(null);
+  const [masterPrompt, setMasterPrompt] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -88,6 +92,16 @@ export const OptimizedResumeEditor = ({
     };
     fetchLlmConfig();
   }, []);
+
+  // Initialize master prompt when llmConfig or activeTab changes
+  useEffect(() => {
+    if (llmConfig) {
+      const prompt = activeTab === 'coverLetter' 
+        ? llmConfig.master_cover_letter_prompt 
+        : llmConfig.master_resume_prompt;
+      setMasterPrompt(prompt || '');
+    }
+  }, [llmConfig, activeTab]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
@@ -180,49 +194,51 @@ export const OptimizedResumeEditor = ({
     }
   };
 
-  const appliedCount = suggestions.filter((s) => s.applied).length;
+  const handleOptimizeResume = async () => {
+    if (!latexCode || !jobDescription) {
+      toast.error('Please provide both resume and job description');
+      return;
+    }
 
-  const getMasterPrompt = () => {
-    if (activeTab === 'coverLetter') {
-      const prompt = llmConfig?.master_cover_letter_prompt;
-      if (prompt) {
-        return <p className="text-gray-600 whitespace-pre-wrap">{prompt}</p>;
+    setIsOptimizing(true);
+    try {
+      const response = await resumeApi.optimizeResume({
+        jobDescription,
+        prompt: masterPrompt,
+        resume: latexCode,
+        masterProfile: llmConfig?.master_content,
+      });
+
+      if (response.data?.optimizedLatex) {
+        onLatexChange(response.data.optimizedLatex);
+        toast.success('Resume optimized successfully!');
+        
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}`,
+            type: 'system',
+            content: '✓ Resume optimized successfully! Your resume has been tailored to match the job description.',
+            timestamp: new Date(),
+          },
+        ]);
       }
-      // Fallback if config not loaded
-      return (
-        <>
-          <p className="text-gray-600">You are an expert cover letter writer. Create a compelling cover letter that highlights the candidate&apos;s relevant experience and skills for this specific job opportunity.</p>
-          <p className="text-gray-600 mt-4">Focus on:</p>
-          <ul className="text-gray-600 mt-2 ml-4 list-disc">
-            <li>Demonstrating enthusiasm for the specific role and company</li>
-            <li>Highlighting relevant achievements and experiences</li>
-            <li>Addressing key requirements from the job description</li>
-            <li>Creating a compelling narrative that connects experience to the role</li>
-          </ul>
-        </>
-      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to optimize resume';
+      toast.error(errorMessage);
+      console.error('Optimization error:', error);
+    } finally {
+      setIsOptimizing(false);
     }
-    const prompt = llmConfig?.master_resume_prompt;
-    if (prompt) {
-      return <p className="text-gray-600 whitespace-pre-wrap">{prompt}</p>;
-    }
-    // Fallback if config not loaded
-    return (
-      <>
-        <p className="text-gray-600">You are an expert resume optimizer. Analyze the provided resume against the job description and suggest specific, actionable improvements that will increase the ATS score and improve the candidate&apos;s chances of getting an interview.</p>
-        <p className="text-gray-600 mt-4">Focus on:</p>
-        <ul className="text-gray-600 mt-2 ml-4 list-disc">
-          <li>Keyword alignment with the job description</li>
-          <li>Quantifiable achievements and metrics</li>
-          <li>Relevant skills and experience highlighting</li>
-          <li>ATS-friendly formatting and structure</li>
-        </ul>
-      </>
-    );
   };
 
+  const appliedCount = suggestions.filter((s) => s.applied).length;
+  const isInputValid = latexCode.trim() && jobDescription.trim();
+  const shouldDisableATS = isCheckingATS || !isInputValid;
+  const shouldDisableOptimize = isOptimizing || !isInputValid;
+
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="h-full w-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50">
       {/* Top Action Bar */}
       <div className="border-b border-gray-200/50 bg-white/80 backdrop-blur-sm px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-2 text-sm text-gray-600">
@@ -237,11 +253,19 @@ export const OptimizedResumeEditor = ({
         <div className="flex items-center space-x-3">
           <button
             onClick={onCheckATS}
-            disabled={isCheckingATS}
+            disabled={shouldDisableATS}
             className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-purple-500/20 disabled:opacity-50 transition-all duration-200"
           >
             <TrendingUp className="w-4 h-4" />
             <span>ATS Score</span>
+          </button>
+          <button
+            onClick={handleOptimizeResume}
+            disabled={shouldDisableOptimize}
+            className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 transition-all duration-200"
+          >
+            <Wand2 className="w-4 h-4" />
+            <span>Optimize</span>
           </button>
           <button
             onClick={onGeneratePDF}
@@ -251,14 +275,6 @@ export const OptimizedResumeEditor = ({
             <Eye className="w-4 h-4" />
             <span>Preview</span>
           </button>
-          {/* <button
-            onClick={onGeneratePDF}
-            disabled={isGeneratingPDF}
-            className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 transition-all duration-200"
-          >
-            <Download className="w-4 h-4" />
-            <span>Download PDF</span>
-          </button> */}
         </div>
       </div>
 
@@ -312,9 +328,12 @@ export const OptimizedResumeEditor = ({
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-auto px-4 py-4 font-mono text-sm text-gray-700 bg-white whitespace-pre-wrap wrap-break-word">
-              {getMasterPrompt()}
-            </div>
+            <textarea
+              value={masterPrompt}
+              onChange={(e) => setMasterPrompt(e.target.value)}
+              placeholder="Master prompt will appear here..."
+              className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-white placeholder:text-gray-400"
+            />
           </div>
         </div>
 
@@ -340,9 +359,12 @@ export const OptimizedResumeEditor = ({
           </div>
 
           {/* Code Display */}
-          <div className="flex-1 overflow-auto p-4 bg-gray-50 font-mono text-xs leading-relaxed">
-            <pre className="text-gray-800 whitespace-pre-wrap wrap-break-word">{latexCode}</pre>
-          </div>
+          <textarea
+            value={latexCode}
+            onChange={(e) => onLatexChange(e.target.value)}
+            placeholder="LaTeX code will appear here..."
+            className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-xs text-gray-700 bg-gray-50 placeholder:text-gray-400"
+          />
 
           {/* Footer */}
           <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500">

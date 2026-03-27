@@ -36,8 +36,10 @@ apiClient.interceptors.response.use(
 );
 
 export interface OptimizeResumeRequest {
-  masterDocument: string;
   jobDescription: string;
+  prompt?: string;
+  resume: string;
+  masterProfile?: string;
 }
 
 export interface OptimizeResumeResponse {
