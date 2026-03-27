@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Lock, Loader, CheckCircle } from 'lucide-react';
 import { authApi } from '@/services/api';
 
+export const dynamic = 'force-dynamic';
+
 export default function ResetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
