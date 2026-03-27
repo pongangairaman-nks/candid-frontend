@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, AlertCircle, Save, Loader, CheckCircle, Info, Lightbulb } from 'lucide-react';
+import { FileText, AlertCircle, Save, Loader, CheckCircle, Info, Lightbulb, Copy, Check } from 'lucide-react';
 import { useResumeStore } from '@/store/resumeStore';
 import { resumeApi, llmConfigApi, atsLLMApi, type LlmUsageTotals, type LlmUsageEntry } from '@/services/api';
 import { LLMConfigSection } from '@/components/LLMConfigSection';
@@ -32,6 +32,9 @@ export default function ConfigurationPage() {
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageEntries, setUsageEntries] = useState<LlmUsageEntry[]>([]);
   const fetchInitiatedRef = useRef(false);
+  const [copiedPrompt, setCopiedPrompt] = useState<'resume' | 'coverLetter' | null>(null);
+  const [copiedContent, setCopiedContent] = useState(false);
+  const [copiedTemplate, setCopiedTemplate] = useState<'resume' | 'coverLetter' | null>(null);
 
   const fetchUsage = async () => {
     console.log('📡 [ConfigurationPage] fetchUsage called');
@@ -200,9 +203,9 @@ export default function ConfigurationPage() {
   };
 
   return (
-    <div className="h-full flex flex-col overflow-auto">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="px-6 md:px-8 py-6 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+      <div className="px-6 md:px-8 py-6 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shrink-0">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Configuration</h1>
         <p className="text-sm text-slate-600 dark:text-slate-400">
           Configure your LLM provider and master resume template
@@ -210,7 +213,7 @@ export default function ConfigurationPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+      <div className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0">
         <div className="px-6 md:px-8 flex gap-8">
           <button
             onClick={() => setActiveTab('llm')}
@@ -256,7 +259,7 @@ export default function ConfigurationPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col p-6 md:p-8 overflow-auto">
+      <div className="flex-1 flex flex-col p-6 md:p-8 overflow-auto min-h-0">
         {/* LLM Configuration Tab */}
         {activeTab === 'llm' && (
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
@@ -333,21 +336,33 @@ export default function ConfigurationPage() {
 
         {/* Master Template Tab */}
         {activeTab === 'template' && (
-          <div className="space-y-6">
+          <div className="flex flex-col min-h-0 h-full">
             {/* Two Column Layout */}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-6 min-h-0 h-full">
               {/* Master Resume Template Section */}
-              <div>
-                {/* <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Master Resume Template</h2> */}
-                <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-                  {/* Label */}
-                  <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                    <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      Master Resume Template
-                    </label>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      {masterDocument.length > 0 && `${Math.round(masterDocument.length / 1024)} KB`}
-                    </span>
+              <div className="flex flex-col min-h-0 h-full">
+                <div className="flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden min-h-0 h-full">
+                  {/* Header */}
+                  <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center justify-between shrink-0">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">Master Resume Template</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">LaTeX template for resumes</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(masterDocument);
+                        setCopiedTemplate('resume');
+                        setTimeout(() => setCopiedTemplate(null), 2000);
+                      }}
+                      className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors shrink-0"
+                      title="Copy template"
+                    >
+                      {copiedTemplate === 'resume' ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-gray-600" />
+                      )}
+                    </button>
                   </div>
 
                   {/* Textarea */}
@@ -357,32 +372,49 @@ export default function ConfigurationPage() {
                       setMasterDocument(e.target.value);
                       setError(null);
                     }}
-                    placeholder="Paste your LaTeX resume template here. Example:&#10;&#10;\documentclass{article}&#10;\usepackage[utf8]{inputenc}&#10;...&#10;&#10;\begin{document}&#10;...&#10;\end{document}"
-                    className="h-120 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                    placeholder="Paste your LaTeX resume template here..."
+                    className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-white placeholder:text-gray-400 min-h-0"
                   />
+
+                  {/* Footer */}
+                  <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500 shrink-0">
+                    <p>Size: {masterDocument.length > 0 ? `${Math.round(masterDocument.length / 1024)} KB` : '0 KB'}</p>
+                  </div>
                 </div>
 
                 {/* Info Box */}
-                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
-                  <Info size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3 shrink-0">
+                  <Info size={18} className="text-blue-600 shrink-0 mt-0.5" />
+                  <p className="text-sm text-blue-700">
                     Paste your complete LaTeX resume template here. This will be prefilled in the Resume Creation section and can be edited after optimization.
                   </p>
                 </div>
               </div>
 
               {/* Master Cover Letter Template Section */}
-              <div>
-                {/* <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Master Cover Letter Template</h2> */}
-                <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-                  {/* Label */}
-                  <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                    <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      Master Cover Letter Template
-                    </label>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      {masterCoverLetter.length > 0 && `${Math.round(masterCoverLetter.length / 1024)} KB`}
-                    </span>
+              <div className="flex flex-col min-h-0 h-full">
+                <div className="flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden min-h-0 h-full">
+                  {/* Header */}
+                  <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center justify-between shrink-0">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">Master Cover Letter Template</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">LaTeX template for cover letters</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(masterCoverLetter);
+                        setCopiedTemplate('coverLetter');
+                        setTimeout(() => setCopiedTemplate(null), 2000);
+                      }}
+                      className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors shrink-0"
+                      title="Copy template"
+                    >
+                      {copiedTemplate === 'coverLetter' ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-gray-600" />
+                      )}
+                    </button>
                   </div>
 
                   {/* Textarea */}
@@ -392,15 +424,20 @@ export default function ConfigurationPage() {
                       setMasterCoverLetter(e.target.value);
                       setError(null);
                     }}
-                    placeholder="Paste your LaTeX cover letter template here. Example:&#10;&#10;\documentclass{article}&#10;\usepackage[utf8]{inputenc}&#10;...&#10;&#10;\begin{document}&#10;Dear Hiring Manager,&#10;...&#10;\end{document}"
-                    className="h-120 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                    placeholder="Paste your LaTeX cover letter template here..."
+                    className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-white placeholder:text-gray-400 min-h-0"
                   />
+
+                  {/* Footer */}
+                  <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500 shrink-0">
+                    <p>Size: {masterCoverLetter.length > 0 ? `${Math.round(masterCoverLetter.length / 1024)} KB` : '0 KB'}</p>
+                  </div>
                 </div>
 
                 {/* Info Box */}
-                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
-                  <Info size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3 shrink-0">
+                  <Info size={18} className="text-blue-600 shrink-0 mt-0.5" />
+                  <p className="text-sm text-blue-700">
                     Paste your complete LaTeX cover letter template here. This will be prefilled in the Cover Letter Creation section and can be edited after optimization.
                   </p>
                 </div>
@@ -474,46 +511,61 @@ export default function ConfigurationPage() {
 
         {/* Master Content Tab */}
         {activeTab === 'content' && (
-          <div className="space-y-6">
-            <div>
-              {/* <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Master Content</h2> */}
-              <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-                {/* Label */}
-                <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                  <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    Master Content
-                  </label>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {masterContent.length > 0 && `${masterContent.length} / 50000 characters`}
-                  </span>
+          <div className="flex flex-col min-h-0 h-full">
+            <div className="flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden min-h-0 h-full">
+              {/* Header */}
+              <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center justify-between shrink-0">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">Master Content</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Comprehensive skills and experiences</p>
                 </div>
-
-                {/* Textarea */}
-                <textarea
-                  value={masterContent}
-                  onChange={(e) => {
-                    if (e.target.value.length <= 50000) {
-                      setMasterContent(e.target.value);
-                      setError(null);
-                    }
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(masterContent);
+                    setCopiedContent(true);
+                    setTimeout(() => setCopiedContent(false), 2000);
                   }}
-                  placeholder="Paste your comprehensive skills, experiences, projects, certifications, and achievements here. Include details not in your current resume. (Max 50KB)"
-                  className="h-120 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
-                />
+                  className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors shrink-0"
+                  title="Copy content"
+                >
+                  {copiedContent ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <Copy className="w-4 h-4 text-gray-600" />
+                  )}
+                </button>
               </div>
 
-              {/* Info Box */}
-              <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
-                <Lightbulb size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  <strong>Tip:</strong> Include skills you haven&apos;t used recently, side projects, certifications, and detailed achievements with metrics. This helps the LLM find better matches for job descriptions.
-                </p>
+              {/* Textarea */}
+              <textarea
+                value={masterContent}
+                onChange={(e) => {
+                  if (e.target.value.length <= 50000) {
+                    setMasterContent(e.target.value);
+                    setError(null);
+                  }
+                }}
+                placeholder="Paste your comprehensive skills, experiences, projects, certifications, and achievements here..."
+                className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-white placeholder:text-gray-400 min-h-0"
+              />
+
+              {/* Footer */}
+              <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500 shrink-0">
+                <p>Characters: {masterContent.length} / 50000</p>
               </div>
+            </div>
+
+            {/* Info Box */}
+            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3 shrink-0">
+              <Lightbulb size={18} className="text-blue-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-blue-700">
+                <strong>Tip:</strong> Include skills you haven&apos;t used recently, side projects, certifications, and detailed achievements with metrics. This helps the LLM find better matches for job descriptions.
+              </p>
             </div>
 
             {/* Error Display */}
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex gap-3">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex gap-3 shrink-0">
                 <AlertCircle size={18} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                 <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
               </div>
@@ -521,14 +573,14 @@ export default function ConfigurationPage() {
 
             {/* Success Message */}
             {contentSaved && (
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex gap-3">
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex gap-3 shrink-0">
                 <CheckCircle size={18} className="text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
                 <p className="text-sm text-green-700 dark:text-green-300">Master content saved successfully!</p>
               </div>
             )}
 
             {/* Save and Clear Buttons */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 shrink-0">
               <button
                 onClick={handleSaveMasterContent}
                 disabled={!masterContent.trim() || contentLoading}
@@ -563,20 +615,33 @@ export default function ConfigurationPage() {
 
         {/* Master Prompts Tab */}
         {activeTab === 'prompts' && (
-          <div className="space-y-6">
+          <div className="space-y-6  h-full flex flex-col">
             {/* Two Column Layout */}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-6 h-full flex-1">
               {/* Master Resume Prompt Section */}
-              <div>
-                <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-                  {/* Label */}
-                  <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                    <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      Master Resume Optmization Prompt
-                    </label>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      {masterResumePrompt.length > 0 && `${Math.round(masterResumePrompt.length / 1024)} KB`}
-                    </span>
+              <div className="flex flex-col min-h-0 h-full">
+                <div className="flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden min-h-0 h-full">
+                  {/* Header */}
+                  <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center justify-between shrink-0">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">Master Resume Prompt</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Default optimization instructions</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(masterResumePrompt);
+                        setCopiedPrompt('resume');
+                        setTimeout(() => setCopiedPrompt(null), 2000);
+                      }}
+                      className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors shrink-0"
+                      title="Copy prompt"
+                    >
+                      {copiedPrompt === 'resume' ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-gray-600" />
+                      )}
+                    </button>
                   </div>
 
                   {/* Textarea */}
@@ -586,31 +651,41 @@ export default function ConfigurationPage() {
                       setMasterResumePrompt(e.target.value);
                       setError(null);
                     }}
-                    placeholder="Enter the default prompt for resume optimization. This will be used for all new jobs unless customized."
-                    className="h-120 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                    placeholder="Enter the default prompt for resume optimization..."
+                    className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-white placeholder:text-gray-400 min-h-0"
                   />
-                </div>
 
-                {/* Info Box */}
-                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
-                  <Info size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    This prompt will be prefilled for all new job applications and can be customized per job.
-                  </p>
+                  {/* Footer */}
+                  <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500 shrink-0">
+                    <p>Characters: {masterResumePrompt.length}</p>
+                  </div>
                 </div>
               </div>
 
               {/* Master Cover Letter Prompt Section */}
-              <div>
-                <div className="flex flex-col bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-                  {/* Label */}
-                  <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                    <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      Master Cover Letter Optmization Prompt
-                    </label>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      {masterCoverLetterPrompt.length > 0 && `${Math.round(masterCoverLetterPrompt.length / 1024)} KB`}
-                    </span>
+              <div className="flex flex-col min-h-0 h-full">
+                <div className="flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden min-h-0 h-full">
+                  {/* Header */}
+                  <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center justify-between shrink-0">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">Master Cover Letter Prompt</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Default generation instructions</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(masterCoverLetterPrompt);
+                        setCopiedPrompt('coverLetter');
+                        setTimeout(() => setCopiedPrompt(null), 2000);
+                      }}
+                      className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors shrink-0"
+                      title="Copy prompt"
+                    >
+                      {copiedPrompt === 'coverLetter' ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-gray-600" />
+                      )}
+                    </button>
                   </div>
 
                   {/* Textarea */}
@@ -620,17 +695,14 @@ export default function ConfigurationPage() {
                       setMasterCoverLetterPrompt(e.target.value);
                       setError(null);
                     }}
-                    placeholder="Enter the default prompt for cover letter generation. This will be used for all new jobs unless customized."
-                    className="h-120 px-6 py-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                    placeholder="Enter the default prompt for cover letter generation..."
+                    className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-white placeholder:text-gray-400 min-h-0"
                   />
-                </div>
 
-                {/* Info Box */}
-                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
-                  <Info size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    This prompt will be prefilled for all new job applications and can be customized per job.
-                  </p>
+                  {/* Footer */}
+                  <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500 shrink-0">
+                    <p>Characters: {masterCoverLetterPrompt.length}</p>
+                  </div>
                 </div>
               </div>
             </div>

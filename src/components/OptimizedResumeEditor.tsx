@@ -265,7 +265,7 @@ export const OptimizedResumeEditor = ({
       {/* Three Column Layout */}
       <div className="flex-1 flex overflow-hidden gap-4 p-4">
         {/* Left Column: Job Description & Master Prompt */}
-        <div className="flex-1 flex flex-col gap-4">
+        <div className="flex-[0.25] flex flex-col gap-4">
           {/* Top: Job Description */}
           <div className="flex-1 flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden">
             {/* Header */}
@@ -319,7 +319,7 @@ export const OptimizedResumeEditor = ({
         </div>
 
         {/* Middle Column: LaTeX Code */}
-        <div className="flex-1 flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden">
+        <div className="flex-[0.45] flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden">
           {/* Header */}
           <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center justify-between">
             <div>
@@ -351,7 +351,7 @@ export const OptimizedResumeEditor = ({
         </div>
 
         {/* Right Column: Suggestions & Chat */}
-        <div className="flex-1 flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden">
+        <div className="flex-[0.3] flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden">
           {/* Tab Navigation */}
           <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center space-x-2">
             <button
