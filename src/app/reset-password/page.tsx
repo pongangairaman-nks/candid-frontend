@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, Loader, CheckCircle } from 'lucide-react';
 import { authApi } from '@/services/api';
 
-export const dynamic = 'force-dynamic';
-
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const resetToken = searchParams.get('token');
@@ -151,5 +149,13 @@ export default function ResetPasswordPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><p className="text-white">Loading...</p></div>}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }
