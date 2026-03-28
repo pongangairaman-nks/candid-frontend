@@ -247,14 +247,14 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
                       <div className="font-medium text-slate-900 dark:text-white">{app.position}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                         {app.industry && `${app.industry} • `}
-                        {app.job_portal}
+                        {app.jobPortal}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-slate-900 dark:text-white">{app.company_name}</div>
-                      {app.company_url && (
+                      <div className="font-medium text-slate-900 dark:text-white">{app.companyName}</div>
+                      {app.companyUrl && (
                         <a
-                          href={app.company_url}
+                          href={app.companyUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
@@ -279,7 +279,7 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
                       </select>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                      {app.applied_date ? new Date(app.applied_date).toLocaleDateString() : '-'}
+                      {app.appliedDate ? new Date(app.appliedDate).toLocaleDateString() : '-'}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-2">
@@ -305,7 +305,7 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
                           <Zap size={16} />
                         </button>
                         <button
-                          onClick={() => handleDownloadResume(app.resume_pdf_url)}
+                          onClick={() => handleDownloadResume(app.resumePdfUrl)}
                           className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                           title="Download Resume"
                         >
@@ -411,11 +411,11 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
                 </label>
                 <input
                   type="text"
-                  defaultValue={selectedApplication?.company_name || ''}
+                  defaultValue={selectedApplication?.companyName || ''}
                   disabled={modalMode === 'view'}
                   className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="Enter company name"
-                  id="company_name"
+                  id="companyName"
                 />
               </div>
 
@@ -439,11 +439,11 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
                 </label>
                 <input
                   type="url"
-                  defaultValue={selectedApplication?.job_url || ''}
+                  defaultValue={selectedApplication?.jobUrl || ''}
                   disabled={modalMode === 'view'}
                   className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="https://example.com/job"
-                  id="job_url"
+                  id="jobUrl"
                 />
               </div>
 
@@ -453,11 +453,11 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
                 </label>
                 <input
                   type="url"
-                  defaultValue={selectedApplication?.company_url || ''}
+                  defaultValue={selectedApplication?.companyUrl || ''}
                   disabled={modalMode === 'view'}
                   className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="https://example.com"
-                  id="company_url"
+                  id="companyUrl"
                 />
               </div>
 
@@ -467,10 +467,10 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
                 </label>
                 <input
                   type="date"
-                  defaultValue={selectedApplication?.applied_date ? new Date(selectedApplication.applied_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
+                  defaultValue={selectedApplication?.appliedDate ? new Date(selectedApplication.appliedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
                   disabled={modalMode === 'view'}
                   className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  id="applied_date"
+                  id="appliedDate"
                 />
               </div>
 
@@ -506,21 +506,21 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
               {modalMode !== 'view' && (
                 <button
                   onClick={() => {
-                    const appliedDateInput = (document.getElementById('applied_date') as HTMLInputElement).value;
+                    const appliedDateInput = (document.getElementById('appliedDate') as HTMLInputElement).value;
                     const statusInput = (document.getElementById('status') as HTMLSelectElement).value;
                     const formData: JobApplication = {
                       id: selectedApplication?.id,
                       position: (document.getElementById('position') as HTMLInputElement).value,
-                      company_name: (document.getElementById('company_name') as HTMLInputElement).value,
-                      job_url: (document.getElementById('job_url') as HTMLInputElement).value,
-                      company_url: (document.getElementById('company_url') as HTMLInputElement).value,
+                      companyName: (document.getElementById('companyName') as HTMLInputElement).value,
+                      jobUrl: (document.getElementById('jobUrl') as HTMLInputElement).value,
+                      companyUrl: (document.getElementById('companyUrl') as HTMLInputElement).value,
                       status: statusInput,
-                      applied_date: new Date(appliedDateInput).toISOString(),
-                      job_description: selectedApplication?.job_description || '',
-                      resume_pdf_url: selectedApplication?.resume_pdf_url,
-                      generated_resume_latex: selectedApplication?.generated_resume_latex,
-                      generated_cover_letter_latex: selectedApplication?.generated_cover_letter_latex,
-                      last_modified_at: new Date().toISOString(),
+                      appliedDate: new Date(appliedDateInput).toISOString(),
+                      jobDescription: selectedApplication?.jobDescription || '',
+                      resumePdfUrl: selectedApplication?.resumePdfUrl,
+                      generatedResumeLatex: selectedApplication?.generatedResumeLatex,
+                      generatedCoverLetterLatex: selectedApplication?.generatedCoverLetterLatex,
+                      lastModifiedAt: new Date().toISOString(),
                     };
                     handleModalSubmit(formData);
                   }}

@@ -53,12 +53,12 @@ export interface OptimizeResumeResponse {
 // LLM-based ATS endpoints (baseline + incremental re-score)
 export interface LLMAtsBaseline {
   requirements: Array<{ id: string; text: string; category: string; priority: string }>;
-  mappings: Array<{ requirement_id: string; match_strength: string; evidence?: string | null; section_key?: string; suggestion?: string | null }>;
-  overall_score: number;
-  keyword_gaps: string[];
+  mappings: Array<{ requirementId: string; matchStrength: string; evidence?: string | null; sectionKey?: string; suggestion?: string | null }>;
+  overallScore: number;
+  keywordGaps: string[];
   strengths: string[];
-  critical_gaps: string[];
-  updated_at?: string;
+  criticalGaps: string[];
+  updatedAt?: string;
 }
 
 export const atsLLMApi = {
@@ -74,13 +74,13 @@ export const atsLLMApi = {
   },
 
   rescore: async (
-    params: { resumeId: number; section_key?: string; before_text?: string; after_text: string }
+    params: { resumeId: number; sectionKey?: string; beforeText?: string; afterText: string }
   ): Promise<{
-    updated_mappings: Array<{ requirement_id: string; match_strength: string; was?: string }>;
-    score_delta: number;
-    new_overall_score: number;
+    updatedMappings: Array<{ requirementId: string; matchStrength: string; was?: string }>;
+    scoreDelta: number;
+    newOverallScore: number;
   }> => {
-    const response = await apiClient.post<{ status: string; data: { updated_mappings: Array<{ requirement_id: string; match_strength: string; was?: string }>; score_delta: number; new_overall_score: number; } }>(
+    const response = await apiClient.post<{ status: string; data: { updatedMappings: Array<{ requirementId: string; matchStrength: string; was?: string }>; scoreDelta: number; newOverallScore: number; } }>(
       '/ats/llm/rescore',
       params
     );
@@ -111,43 +111,43 @@ export interface LlmUsageEntry {
   phase: 'analysis.extract' | 'analysis.map' | 'rescore' | string;
   provider: 'openai' | 'claude' | 'gemini' | string;
   model: string | null;
-  latency_ms?: number;
+  latencyMs?: number;
   stub?: boolean;
 }
 
 export interface LlmUsageTotals {
-  total_calls: number;
-  analysis_calls: number;
-  rescore_calls: number;
-  total_latency_ms: number;
-  stub_calls: number;
+  totalCalls: number;
+  analysisCalls: number;
+  rescoreCalls: number;
+  totalLatencyMs: number;
+  stubCalls: number;
 }
 
 export interface ATSBreakdown {
-  primary_keywords: {
+  primaryKeywords: {
     matched: number;
     total: number;
     percentage: number;
     weight: number;
   };
-  secondary_keywords: {
+  secondaryKeywords: {
     matched: number;
     total: number;
     percentage: number;
     weight: number;
   };
-  matching_skills: {
+  matchingSkills: {
     matched: number;
     missing: number;
     total: number;
     percentage: number;
     weight: number;
   };
-  format_quality: {
+  formatQuality: {
     score: number;
     weight: number;
   };
-  seniority_alignment: {
+  seniorityAlignment: {
     score: number;
     weight: number;
   };
@@ -179,7 +179,6 @@ export const resumeApi = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error saving master template:', error);
       throw error;
     }
   },
@@ -189,14 +188,13 @@ export const resumeApi = {
       const response = await apiClient.get<{ status: string; data: { latexCode: string } }>(
         '/resume/master-template'
       );
-      return { latexCode: response.data.data.latexCode };
+      return { latexCode: response.data.data?.latexCode || '' };
     } catch (error: unknown) {
       const axiosError = error as { response?: { status: number } };
       if (axiosError.response?.status === 404) {
         console.log('No master template found, returning empty');
         return { latexCode: '' };
       }
-      console.error('Error fetching master template:', error);
       return { latexCode: '' };
     }
   },
@@ -209,7 +207,6 @@ export const resumeApi = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error saving master cover letter template:', error);
       throw error;
     }
   },
@@ -219,14 +216,13 @@ export const resumeApi = {
       const response = await apiClient.get<{ status: string; data: { latexCode: string } }>(
         '/resume/master-cover-letter-template'
       );
-      return { latexCode: response.data.data.latexCode };
+      return { latexCode: response.data.data?.latexCode || '' };
     } catch (error: unknown) {
       const axiosError = error as { response?: { status: number } };
       if (axiosError.response?.status === 404) {
         console.log('No master cover letter template found, returning empty');
         return { latexCode: '' };
       }
-      console.error('Error fetching master cover letter template:', error);
       return { latexCode: '' };
     }
   },
@@ -293,7 +289,6 @@ export const resumeApi = {
 
       return { pdfUrl };
     } catch (error) {
-      console.error('Error generating PDF:', error);
       throw error;
     }
   },
@@ -305,7 +300,6 @@ export const resumeApi = {
       });
       return response.data;
     } catch (error) {
-      console.error('Error downloading resume:', error);
       throw error;
     }
   },
@@ -323,25 +317,24 @@ export const resumeApi = {
 
       return response.data.data;
     } catch (error) {
-      console.error('ATS analysis error:', error);
       throw error;
     }
   },
 
   refineSection: async (params: {
-    section_key: string;
-    section_title: string;
-    section_content: string;
-    job_description: string;
-    conversation_history: Array<{ role: string; content: string }>;
-    user_message: string;
-  }): Promise<{ refined_content: string; refinement_suggestion: string; tokens_used: number }> => {
+    sectionKey: string;
+    sectionTitle: string;
+    sectionContent: string;
+    jobDescription: string;
+    conversationHistory: Array<{ role: string; content: string }>;
+    userMessage: string;
+  }): Promise<{ refinedContent: string; refinementSuggestion: string; tokensUsed: number }> => {
     try {
       const response = await apiClient.post<{
         status: string;
-        refined_content: string;
-        refinement_suggestion: string;
-        tokens_used: number;
+        refinedContent: string;
+        refinementSuggestion: string;
+        tokensUsed: number;
       }>('/resume/refine-section', params);
 
       if (response.data?.status !== 'success') {
@@ -349,12 +342,11 @@ export const resumeApi = {
       }
 
       return {
-        refined_content: response.data.refined_content,
-        refinement_suggestion: response.data.refinement_suggestion,
-        tokens_used: response.data.tokens_used,
+        refinedContent: response.data.refinedContent,
+        refinementSuggestion: response.data.refinementSuggestion,
+        tokensUsed: response.data.tokensUsed,
       };
     } catch (error) {
-      console.error('Section refinement error:', error);
       throw error;
     }
   },
@@ -392,21 +384,25 @@ export const authApi = {
       localStorage.setItem('user', JSON.stringify(user));
       return response.data.data;
     } catch (error) {
-      console.error('Signup error:', error);
       throw error;
     }
   },
 
   login: async (data: LoginRequest): Promise<AuthResponse> => {
     try {
-      const response = await apiClient.post<{ data: AuthResponse }>('/auth/login', data);
+      const response = await apiClient.post<{ status: string; message: string; data: AuthResponse; errorType?: string }>('/auth/login', data);
       const { token, user } = response.data.data;
       localStorage.setItem('authToken', token);
       localStorage.setItem('user', JSON.stringify(user));
       return response.data.data;
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { message?: string; errorType?: string } } };
+      const errorMessage = axiosError.response?.data?.message || 'Login failed. Please try again.';
+      const errorType = axiosError.response?.data?.errorType || 'AUTH_ERROR';
+      
+      const customError = new Error(errorMessage) as Error & { errorType: string };
+      customError.errorType = errorType;
+      throw customError;
     }
   },
 
@@ -415,7 +411,6 @@ export const authApi = {
       const response = await apiClient.post<{ message: string }>('/auth/forgot-password', { email });
       return response.data;
     } catch (error) {
-      console.error('Forgot password error:', error);
       throw error;
     }
   },
@@ -428,7 +423,6 @@ export const authApi = {
       });
       return response.data;
     } catch (error) {
-      console.error('Reset password error:', error);
       throw error;
     }
   },
@@ -440,7 +434,6 @@ export const authApi = {
       });
       return response.data;
     } catch (error) {
-      console.error('Verify email error:', error);
       throw error;
     }
   },
@@ -450,7 +443,6 @@ export const authApi = {
       const response = await apiClient.get<{ data: { user: AuthResponse['user'] } }>('/auth/me');
       return response.data.data.user;
     } catch (error) {
-      console.error('Get current user error:', error);
       throw error;
     }
   },
@@ -564,7 +556,6 @@ Bachelor's Degree -- Chennai, India
 
       return { pdfUrl };
     } catch (error) {
-      console.error('PDF generation error:', error);
       throw error;
     }
   },
@@ -574,7 +565,6 @@ Bachelor's Degree -- Chennai, India
       const response = await fetch(pdfUrl);
       return response.blob();
     } catch (error) {
-      console.error('Download error:', error);
       throw error;
     }
   },
@@ -583,33 +573,35 @@ Bachelor's Degree -- Chennai, India
 export interface JobApplication {
   id?: number;
   position: string;
-  company_name: string;
+  companyName: string;
   industry?: string;
-  company_url?: string;
-  job_url?: string;
-  job_portal?: string;
-  job_description?: string;
+  companyUrl?: string;
+  jobUrl?: string;
+  jobPortal?: string;
+  jobDescription?: string;
   status: string;
-  applied_date?: string;
-  interview_date?: string;
+  appliedDate?: string;
+  interviewDate?: string;
   notes?: string;
-  resume_id?: number;
-  resume_pdf_url?: string;
-  cover_letter_pdf_url?: string;
-  generated_resume_latex?: string;
-  generated_cover_letter_latex?: string;
-  resume_prompt?: string;
-  cover_letter_prompt?: string;
-  last_modified_at?: string;
-  created_at?: string;
-  updated_at?: string;
+  resumeId?: number;
+  resumePdfUrl?: string;
+  coverLetterPdfUrl?: string;
+  generatedResumeLatex?: string;
+  generatedCoverLetterLatex?: string;
+  resumePrompt?: string;
+  coverLetterPrompt?: string;
+  lastModifiedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LLMConfig {
-  master_content?: string;
-  master_resume_prompt?: string;
-  master_cover_letter_prompt?: string;
-  use_latex_template?: boolean;
+  masterContent?: string;
+  masterResumePrompt?: string;
+  masterCoverLetterPrompt?: string;
+  masterResume?: string;
+  masterCoverLetter?: string;
+  useLatexTemplate?: boolean;
 }
 
 export const llmConfigApi = {
@@ -618,7 +610,6 @@ export const llmConfigApi = {
       const response = await apiClient.get('/llm/config');
       return response.data;
     } catch (error) {
-      console.error('Error fetching LLM config:', error);
       throw error;
     }
   },
@@ -628,7 +619,6 @@ export const llmConfigApi = {
       const response = await apiClient.put('/llm/config', data);
       return response.data;
     } catch (error) {
-      console.error('Error updating LLM config:', error);
       throw error;
     }
   },
@@ -640,7 +630,6 @@ export const jobApplicationApi = {
       const response = await apiClient.get('/job-applications');
       return response.data;
     } catch (error) {
-      console.error('Error fetching job applications:', error);
       throw error;
     }
   },
@@ -650,7 +639,6 @@ export const jobApplicationApi = {
       const response = await apiClient.get(`/job-applications/${id}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching job application:', error);
       throw error;
     }
   },
@@ -660,7 +648,6 @@ export const jobApplicationApi = {
       const response = await apiClient.post('/job-applications', data);
       return response.data;
     } catch (error) {
-      console.error('Error creating job application:', error);
       throw error;
     }
   },
@@ -670,7 +657,6 @@ export const jobApplicationApi = {
       const response = await apiClient.put(`/job-applications/${id}`, data);
       return response.data;
     } catch (error) {
-      console.error('Error updating job application:', error);
       throw error;
     }
   },
@@ -679,7 +665,6 @@ export const jobApplicationApi = {
     try {
       await apiClient.delete(`/job-applications/${id}`);
     } catch (error) {
-      console.error('Error deleting job application:', error);
       throw error;
     }
   },
@@ -689,7 +674,6 @@ export const jobApplicationApi = {
       const response = await apiClient.patch(`/job-applications/${id}/status`, { status });
       return response.data;
     } catch (error) {
-      console.error('Error updating job application status:', error);
       throw error;
     }
   },

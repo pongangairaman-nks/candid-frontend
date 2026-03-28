@@ -12,14 +12,14 @@ interface ConfigCache {
 }
 
 interface LLMConfigData {
-  analyzer_provider: string;
-  analyzer_model: string;
-  analyzer_api_key: string | null;
-  generator_provider: string;
-  generator_model: string;
-  generator_api_key: string | null;
-  master_content: string | null;
-  use_latex_template: boolean;
+  analyzerProvider: string;
+  analyzerModel: string;
+  analyzerApiKey: string | null;
+  generatorProvider: string;
+  generatorModel: string;
+  generatorApiKey: string | null;
+  masterContent: string | null;
+  useLatexTemplate: boolean;
 }
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -214,15 +214,15 @@ export const LLMConfigSection = () => {
           console.log('💾 [LLMConfigSection] Using cached config (cache age:', now - globalConfigCache.timestamp, 'ms)');
           // Use cached data
           const config = globalConfigCache.data;
-          setAnalyzerProvider(config.analyzer_provider);
-          setAnalyzerModel(config.analyzer_model);
-          if (config.analyzer_api_key) {
-            setAnalyzerApiKey(config.analyzer_api_key);
+          setAnalyzerProvider(config.analyzerProvider);
+          setAnalyzerModel(config.analyzerModel);
+          if (config.analyzerApiKey) {
+            setAnalyzerApiKey(config.analyzerApiKey);
           }
-          setGeneratorProvider(config.generator_provider);
-          setGeneratorModel(config.generator_model);
-          if (config.generator_api_key) {
-            setGeneratorApiKey(config.generator_api_key);
+          setGeneratorProvider(config.generatorProvider);
+          setGeneratorModel(config.generatorModel);
+          if (config.generatorApiKey) {
+            setGeneratorApiKey(config.generatorApiKey);
           }
           setIsFetching(false);
           return;
@@ -244,11 +244,11 @@ export const LLMConfigSection = () => {
           
           // Use the saved provider and model directly (no validation against static list)
           // Models are now dynamically fetched, so we trust the saved values
-          const analyzerProvider = config.analyzer_provider || 'claude';
-          const analyzerModel = config.analyzer_model || 'claude-3-5-sonnet-latest';
+          const analyzerProvider = config.analyzerProvider || 'claude';
+          const analyzerModel = config.analyzerModel || 'claude-3-5-sonnet-latest';
           
-          const generatorProvider = config.generator_provider || 'openai';
-          const generatorModel = config.generator_model || 'gpt-4o-mini';
+          const generatorProvider = config.generatorProvider || 'openai';
+          const generatorModel = config.generatorModel || 'gpt-4o-mini';
           
           // Update cache
           globalConfigCache = {
@@ -259,13 +259,13 @@ export const LLMConfigSection = () => {
 
           setAnalyzerProvider(analyzerProvider);
           setAnalyzerModel(analyzerModel);
-          if (config.analyzer_api_key) {
-            setAnalyzerApiKey(config.analyzer_api_key);
+          if (config.analyzerApiKey) {
+            setAnalyzerApiKey(config.analyzerApiKey);
           }
           setGeneratorProvider(generatorProvider);
           setGeneratorModel(generatorModel);
-          if (config.generator_api_key) {
-            setGeneratorApiKey(config.generator_api_key);
+          if (config.generatorApiKey) {
+            setGeneratorApiKey(config.generatorApiKey);
           }
           // Phase 1: Lock LaTeX mode ON regardless of stored value
           setUseLatexTemplate(true);
@@ -342,14 +342,14 @@ export const LLMConfigSection = () => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          analyzer_provider: analyzerProvider,
-          analyzer_model: analyzerModel,
-          analyzer_api_key: analyzerApiKey,
-          generator_provider: generatorProvider,
-          generator_model: generatorModel,
-          generator_api_key: generatorApiKey,
+          analyzerProvider: analyzerProvider,
+          analyzerModel: analyzerModel,
+          analyzerApiKey: analyzerApiKey,
+          generatorProvider: generatorProvider,
+          generatorModel: generatorModel,
+          generatorApiKey: generatorApiKey,
           // Phase 1: Lock LaTeX mode ON
-          use_latex_template: true,
+          useLatexTemplate: true,
         }),
       });
 
@@ -358,12 +358,12 @@ export const LLMConfigSection = () => {
         setSuccessMessage('Configuration saved successfully!');
         // Update state with returned config data including API keys
         if (data.config) {
-          setAnalyzerProvider(data.config.analyzer_provider);
-          setAnalyzerModel(data.config.analyzer_model);
-          setAnalyzerApiKey(data.config.analyzer_api_key || '');
-          setGeneratorProvider(data.config.generator_provider);
-          setGeneratorModel(data.config.generator_model);
-          setGeneratorApiKey(data.config.generator_api_key || '');
+          setAnalyzerProvider(data.config.analyzerProvider);
+          setAnalyzerModel(data.config.analyzerModel);
+          setAnalyzerApiKey(data.config.analyzerApiKey || '');
+          setGeneratorProvider(data.config.generatorProvider);
+          setGeneratorModel(data.config.generatorModel);
+          setGeneratorApiKey(data.config.generatorApiKey || '');
           // Phase 1: Lock LaTeX mode ON regardless of stored value
           setUseLatexTemplate(true);
           
@@ -476,7 +476,8 @@ export const LLMConfigSection = () => {
                     </label>
                     <div className="relative">
                       <input
-                        type={generatorApiKeyVisible ? 'text' : 'password'}
+                        // type={generatorApiKeyVisible ? 'text' : 'password'}
+                        type="text"
                         value={generatorApiKey}
                         onChange={(e) => {
                           setGeneratorApiKey(e.target.value);
@@ -547,7 +548,8 @@ export const LLMConfigSection = () => {
                     </label>
                     <div className="relative">
                       <input
-                        type={analyzerApiKeyVisible ? 'text' : 'password'}
+                        // type={analyzerApiKeyVisible ? 'text' : 'password'}
+                        type="text"
                         value={analyzerApiKey}
                         onChange={(e) => {
                           setAnalyzerApiKey(e.target.value);

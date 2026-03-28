@@ -62,9 +62,11 @@ export const OptimizedResumeEditor = ({
   const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null);
   const [activeRightTab, setActiveRightTab] = useState<'suggestions' | 'chat'>('suggestions');
   const [llmConfig, setLlmConfig] = useState<{
-    master_resume_prompt?: string;
-    master_cover_letter_prompt?: string;
-    master_content?: string;
+    masterResumePrompt?: string;
+    masterCoverLetterPrompt?: string;
+    masterResume?: string;
+    masterCoverLetter?: string;
+    masterProfile?: string;
   } | null>(null);
   const [masterPrompt, setMasterPrompt] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -85,7 +87,14 @@ export const OptimizedResumeEditor = ({
     const fetchLlmConfig = async () => {
       try {
         const config = await llmConfigApi.getConfig();
-        setLlmConfig(config);
+        // API now returns camelCase keys directly
+        setLlmConfig({
+          masterResumePrompt: (config as Record<string, string | undefined>).masterResumePrompt,
+          masterCoverLetterPrompt: (config as Record<string, string | undefined>).masterCoverLetterPrompt,
+          masterResume: (config as Record<string, string | undefined>).masterResume,
+          masterCoverLetter: (config as Record<string, string | undefined>).masterCoverLetter,
+          masterProfile: (config as Record<string, string | undefined>).masterContent,
+        });
       } catch (error) {
         console.error('Error fetching LLM config:', error);
       }
@@ -97,8 +106,8 @@ export const OptimizedResumeEditor = ({
   useEffect(() => {
     if (llmConfig) {
       const prompt = activeTab === 'coverLetter' 
-        ? llmConfig.master_cover_letter_prompt 
-        : llmConfig.master_resume_prompt;
+        ? llmConfig.masterCoverLetterPrompt 
+        : llmConfig.masterResumePrompt;
       setMasterPrompt(prompt || '');
     }
   }, [llmConfig, activeTab]);
@@ -206,7 +215,7 @@ export const OptimizedResumeEditor = ({
         jobDescription,
         prompt: masterPrompt,
         resume: latexCode,
-        masterProfile: llmConfig?.master_content,
+        masterProfile: llmConfig?.masterProfile,
       });
 
       if (response.data?.optimizedLatex) {

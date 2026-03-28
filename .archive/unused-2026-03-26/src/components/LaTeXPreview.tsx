@@ -40,16 +40,16 @@ export const LaTeXPreview = ({
       while ((match = regex.exec(code)) !== null) {
         matches.push({
           start: match.index,
-          end: match.index + match[0].length,
+          end: match.index + (match[0]?.length || 0),
           class: className,
         });
       }
     });
 
-    matches.sort((a, b) => a.start - b.start);
+    matches?.sort((a, b) => a.start - b.start);
 
     let currentIndex = 0;
-    matches.forEach(({ start, end, class: className }, idx) => {
+    matches?.forEach(({ start, end, class: className }, idx) => {
       if (start > currentIndex) {
         tokens.push(code.substring(currentIndex, start));
       }
@@ -112,7 +112,7 @@ export const LaTeXPreview = ({
 
       {/* Footer Info */}
       <div className="px-4 py-2 border-t bg-gray-50 text-xs text-gray-500">
-        <p>Lines: {latexCode.split('\n').length} | Characters: {latexCode.length}</p>
+        <p>Lines: {latexCode?.split('\n')?.length || 0} | Characters: {latexCode?.length || 0}</p>
       </div>
     </div>
   );

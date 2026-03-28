@@ -238,17 +238,17 @@ export const ATSScoreModal = ({ isOpen, onClose, atsData, isLoading = false, las
                         Primary Keywords (40%)
                       </h4>
                       <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                        {atsData.breakdown.primary_keywords.matched}/{atsData.breakdown.primary_keywords.total}
+                        {atsData.breakdown.primary_keywords?.matched}/{atsData.breakdown.primary_keywords?.total}
                       </span>
                     </div>
                     <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full ${getProgressColor(atsData.breakdown.primary_keywords.percentage)}`}
-                        style={{ width: `${atsData.breakdown.primary_keywords.percentage}%` }}
+                        className={`h-2 rounded-full ${getProgressColor(atsData.breakdown.primary_keywords?.percentage || 0)}`}
+                        style={{ width: `${atsData.breakdown.primary_keywords?.percentage || 0}%` }}
                       />
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      {Math.round(atsData.breakdown.primary_keywords.percentage)}% matched
+                      {Math.round(atsData.breakdown.primary_keywords?.percentage || 0)}% matched
                     </p>
                   </div>
 
@@ -259,17 +259,17 @@ export const ATSScoreModal = ({ isOpen, onClose, atsData, isLoading = false, las
                         Secondary Keywords (25%)
                       </h4>
                       <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                        {atsData.breakdown.secondary_keywords.matched}/{atsData.breakdown.secondary_keywords.total}
+                        {atsData.breakdown.secondary_keywords?.matched}/{atsData.breakdown.secondary_keywords?.total}
                       </span>
                     </div>
                     <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full ${getProgressColor(atsData.breakdown.secondary_keywords.percentage)}`}
-                        style={{ width: `${atsData.breakdown.secondary_keywords.percentage}%` }}
+                        className={`h-2 rounded-full ${getProgressColor(atsData.breakdown.secondary_keywords?.percentage || 0)}`}
+                        style={{ width: `${atsData.breakdown.secondary_keywords?.percentage || 0}%` }}
                       />
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      {Math.round(atsData.breakdown.secondary_keywords.percentage)}% matched
+                      {Math.round(atsData.breakdown.secondary_keywords?.percentage || 0)}% matched
                     </p>
                   </div>
 
@@ -280,17 +280,17 @@ export const ATSScoreModal = ({ isOpen, onClose, atsData, isLoading = false, las
                         Matching Skills (15%)
                       </h4>
                       <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                        {atsData.breakdown.matching_skills.matched}/{atsData.breakdown.matching_skills.total}
+                        {atsData.breakdown.matching_skills?.matched}/{atsData.breakdown.matching_skills?.total}
                       </span>
                     </div>
                     <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full ${getProgressColor(atsData.breakdown.matching_skills.percentage)}`}
-                        style={{ width: `${atsData.breakdown.matching_skills.percentage}%` }}
+                        className={`h-2 rounded-full ${getProgressColor(atsData.breakdown.matching_skills?.percentage || 0)}`}
+                        style={{ width: `${atsData.breakdown.matching_skills?.percentage || 0}%` }}
                       />
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      {Math.round(atsData.breakdown.matching_skills.percentage)}% matched
+                      {Math.round(atsData.breakdown.matching_skills?.percentage || 0)}% matched
                     </p>
                   </div>
 
@@ -301,13 +301,13 @@ export const ATSScoreModal = ({ isOpen, onClose, atsData, isLoading = false, las
                         Format Quality (10%)
                       </h4>
                       <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                        {Math.round(atsData.breakdown.format_quality.score)}/100
+                        {Math.round(atsData.breakdown.format_quality?.score || 0)}/100
                       </span>
                     </div>
                     <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full ${getProgressColor(atsData.breakdown.format_quality.score)}`}
-                        style={{ width: `${atsData.breakdown.format_quality.score}%` }}
+                        className={`h-2 rounded-full ${getProgressColor(atsData.breakdown.format_quality?.score || 0)}`}
+                        style={{ width: `${atsData.breakdown.format_quality?.score || 0}%` }}
                       />
                     </div>
                   </div>
@@ -319,13 +319,13 @@ export const ATSScoreModal = ({ isOpen, onClose, atsData, isLoading = false, las
                         Seniority Alignment (10%)
                       </h4>
                       <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                        {Math.round(atsData.breakdown.seniority_alignment.score)}/100
+                        {Math.round(atsData.breakdown.seniority_alignment?.score || 0)}/100
                       </span>
                     </div>
                     <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full ${getProgressColor(atsData.breakdown.seniority_alignment.score)}`}
-                        style={{ width: `${atsData.breakdown.seniority_alignment.score}%` }}
+                        className={`h-2 rounded-full ${getProgressColor(atsData.breakdown.seniority_alignment?.score || 0)}`}
+                        style={{ width: `${atsData.breakdown.seniority_alignment?.score || 0}%` }}
                       />
                     </div>
                   </div>

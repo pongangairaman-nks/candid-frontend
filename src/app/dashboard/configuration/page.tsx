@@ -83,16 +83,16 @@ export default function ConfigurationPage() {
         setMasterCoverLetter(masterCoverLetterRes.latexCode);
         
         // Prefill master content if it exists
-        if (llmConfigRes.master_content) {
-          setMasterContent(llmConfigRes.master_content);
+        if (llmConfigRes.masterContent) {
+          setMasterContent(llmConfigRes.masterContent);
         }
         
         // Prefill master prompts if they exist
-        if (llmConfigRes.master_resume_prompt) {
-          setMasterResumePrompt(llmConfigRes.master_resume_prompt);
+        if (llmConfigRes.masterResumePrompt) {
+          setMasterResumePrompt(llmConfigRes.masterResumePrompt);
         }
-        if (llmConfigRes.master_cover_letter_prompt) {
-          setMasterCoverLetterPrompt(llmConfigRes.master_cover_letter_prompt);
+        if (llmConfigRes.masterCoverLetterPrompt) {
+          setMasterCoverLetterPrompt(llmConfigRes.masterCoverLetterPrompt);
         }
         
         setError(null);
@@ -162,7 +162,7 @@ export default function ConfigurationPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          master_content: masterContent,
+          masterContent: masterContent,
         }),
       });
 
@@ -278,23 +278,23 @@ export default function ConfigurationPage() {
             <div className="mt-3 grid grid-cols-5 gap-4">
               <div className="col-span-5 md:col-span-1 p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30">
                 <div className="text-xs text-slate-500 dark:text-slate-400">Total Calls</div>
-                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : (usageTotals?.total_calls ?? 0)}</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : (usageTotals?.totalCalls ?? 0)}</div>
               </div>
               <div className="col-span-5 md:col-span-1 p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30">
                 <div className="text-xs text-slate-500 dark:text-slate-400">Analysis Calls</div>
-                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : (usageTotals?.analysis_calls ?? 0)}</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : (usageTotals?.analysisCalls ?? 0)}</div>
               </div>
               <div className="col-span-5 md:col-span-1 p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30">
                 <div className="text-xs text-slate-500 dark:text-slate-400">Rescore Calls</div>
-                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : (usageTotals?.rescore_calls ?? 0)}</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : (usageTotals?.rescoreCalls ?? 0)}</div>
               </div>
               <div className="col-span-5 md:col-span-1 p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30">
                 <div className="text-xs text-slate-500 dark:text-slate-400">Total Latency</div>
-                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : `${Math.round((usageTotals?.total_latency_ms ?? 0) / 1000)}s`}</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : `${Math.round((usageTotals?.totalLatencyMs ?? 0) / 1000)}s`}</div>
               </div>
               <div className="col-span-5 md:col-span-1 p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30">
                 <div className="text-xs text-slate-500 dark:text-slate-400">Stub Calls</div>
-                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : (usageTotals?.stub_calls ?? 0)}</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">{usageLoading ? '—' : (usageTotals?.stubCalls ?? 0)}</div>
               </div>
             </div>
 
@@ -318,7 +318,7 @@ export default function ConfigurationPage() {
                         <td className="px-4 py-2 text-slate-900 dark:text-slate-100">{new Date(u.ts).toLocaleString()}</td>
                         <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{u.phase}</td>
                         <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{u.provider}{u.model ? ` / ${u.model}` : ''}</td>
-                        <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{typeof u.latency_ms === 'number' ? `${u.latency_ms} ms` : '—'}</td>
+                        <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{typeof u.latencyMs === 'number' ? `${u.latencyMs} ms` : '—'}</td>
                         <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{u.stub ? 'Yes' : 'No'}</td>
                       </tr>
                     ))}
@@ -468,7 +468,7 @@ export default function ConfigurationPage() {
             )}
 
             {/* Common Save Button */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 pt-6">
               <button
                 onClick={async () => {
                   if (masterDocument.trim()) {
@@ -580,7 +580,7 @@ export default function ConfigurationPage() {
             )}
 
             {/* Save and Clear Buttons */}
-            <div className="flex gap-3 shrink-0">
+            <div className="flex gap-3 shrink-0 pt-6">
               <button
                 onClick={handleSaveMasterContent}
                 disabled={!masterContent.trim() || contentLoading}
@@ -737,8 +737,8 @@ export default function ConfigurationPage() {
 
                   try {
                     await llmConfigApi.updateConfig({
-                      master_resume_prompt: masterResumePrompt || undefined,
-                      master_cover_letter_prompt: masterCoverLetterPrompt || undefined,
+                      masterResumePrompt: masterResumePrompt || undefined,
+                      masterCoverLetterPrompt: masterCoverLetterPrompt || undefined,
                     });
                     setPromptsSaved(true);
                     setTimeout(() => setPromptsSaved(false), 3000);

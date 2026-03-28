@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { Mail, Lock, Loader } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { useAuthStore } from '@/store/authStore';
 
 interface LoginFormProps {
@@ -13,15 +13,13 @@ interface LoginFormProps {
 export const LoginForm = ({ onSuccess, onSwitchToSignup }: LoginFormProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const { login, isLoading } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
 
     if (!email || !password) {
-      setError('Please fill in all fields');
+      toast.error('Please fill in all fields');
       return;
     }
 
@@ -29,7 +27,8 @@ export const LoginForm = ({ onSuccess, onSwitchToSignup }: LoginFormProps) => {
       await login({ email, password });
       onSuccess();
     } catch (err) {
-      setError('Login failed. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Login failed. Please try again.';
+      toast.error(errorMessage);
     }
   };
 
@@ -72,12 +71,6 @@ export const LoginForm = ({ onSuccess, onSwitchToSignup }: LoginFormProps) => {
           Forgot password?
         </Link>
       </div> */}
-
-      {error && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
-          {error}
-        </div>
-      )}
 
       <button
         type="submit"
