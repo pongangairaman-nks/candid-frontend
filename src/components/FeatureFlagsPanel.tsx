@@ -51,7 +51,7 @@ export const FeatureFlagsPanel = () => {
     });
   };
 
-  const handleChange = (key: keyof FeatureFlags, value: any) => {
+  const handleChange = (key: keyof FeatureFlags, value: boolean | 'fast' | 'high' | 'legacy' | 'llm') => {
     setChanges({
       ...changes,
       [key]: value,
@@ -68,7 +68,7 @@ export const FeatureFlagsPanel = () => {
       setSaving(true);
       const response = await apiClient.post('/feature-flags/bulk', { flags: changes });
       if (response.data?.status === 'success') {
-        setFlags({ ...flags, ...changes });
+        setFlags({ ...flags, ...changes } as FeatureFlags);
         setChanges({});
         setMessage({ type: 'success', text: 'Settings saved successfully' });
         setTimeout(() => setMessage(null), 3000);
@@ -281,7 +281,7 @@ export const FeatureFlagsPanel = () => {
               </p>
             </div>
             <select
-              value={getCurrentValue('sectionOptimizeQualityDefault')}
+              value={getCurrentValue('sectionOptimizeQualityDefault') as 'fast' | 'high'}
               onChange={(e) =>
                 handleChange('sectionOptimizeQualityDefault', e.target.value as 'fast' | 'high')
               }
@@ -303,7 +303,7 @@ export const FeatureFlagsPanel = () => {
               </p>
             </div>
             <select
-              value={getCurrentValue('atsDefaultMode')}
+              value={getCurrentValue('atsDefaultMode') as 'legacy' | 'llm'}
               onChange={(e) => handleChange('atsDefaultMode', e.target.value as 'legacy' | 'llm')}
               className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium"
             >

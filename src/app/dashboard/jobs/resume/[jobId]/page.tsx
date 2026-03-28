@@ -64,10 +64,10 @@ export default function ResumeOptimizationPage() {
       try {
         setIsSaving(true);
         const updatedApp = await jobApplicationApi.update(parseInt(jobId), {
-          job_description: jobDescription,
+          jobDescription: jobDescription,
         });
-        if (updatedApp.last_modified_at) {
-          setLastSavedTime(new Date(updatedApp.last_modified_at));
+        if (updatedApp.lastModifiedAt) {
+          setLastSavedTime(new Date(updatedApp.lastModifiedAt));
         }
       } catch (error) {
         console.error('Failed to autosave job description:', error);
@@ -98,8 +98,8 @@ export default function ResumeOptimizationPage() {
         const updatedApp = await jobApplicationApi.update(parseInt(jobId), {
           [fieldName]: latexCode,
         });
-        if (updatedApp.last_modified_at) {
-          setLastSavedTime(new Date(updatedApp.last_modified_at));
+        if (updatedApp.lastModifiedAt) {
+          setLastSavedTime(new Date(updatedApp.lastModifiedAt));
         }
       } catch (error) {
         console.error('Failed to autosave LaTeX content:', error);
@@ -127,12 +127,12 @@ export default function ResumeOptimizationPage() {
           llmConfigApi.getConfig(),
         ]);
 
-        if (jobApp.job_description && jobApp.job_description.trim()) {
-          setJobDescription(jobApp.job_description);
+        if (jobApp.jobDescription && jobApp.jobDescription.trim()) {
+          setJobDescription(jobApp.jobDescription);
         }
 
-        if (jobApp.last_modified_at) {
-          setLastSavedTime(new Date(jobApp.last_modified_at));
+        if (jobApp.lastModifiedAt) {
+          setLastSavedTime(new Date(jobApp.lastModifiedAt));
         }
 
         const [resumeTemplate, coverLetterTemplate] = await Promise.all([
@@ -150,13 +150,13 @@ export default function ResumeOptimizationPage() {
           setCoverLetterLatexCode(coverLetterTemplate.latexCode);
         }
 
-        if (jobApp.generated_resume_latex) {
-          setResumeLatexCode(jobApp.generated_resume_latex);
-          setLatexCode(jobApp.generated_resume_latex);
+        if (jobApp.generatedResumeLatex) {
+          setResumeLatexCode(jobApp.generatedResumeLatex);
+          setLatexCode(jobApp.generatedResumeLatex);
         }
 
-        if (jobApp.generated_cover_letter_latex) {
-          setCoverLetterLatexCode(jobApp.generated_cover_letter_latex);
+        if (jobApp.generatedCoverLetterLatex) {
+          setCoverLetterLatexCode(jobApp.generatedCoverLetterLatex);
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -227,22 +227,22 @@ export default function ResumeOptimizationPage() {
 
       if (process.env.NEXT_PUBLIC_ATS_LLM_BETA === 'true') {
         const baseline = await atsLLMApi.baseline({ resumeText: extractedText, jobDescription, force: true });
-        const score = baseline.overall_score || 0;
+        const score = baseline.overallScore || 0;
         const status = score >= 70 ? 'pass' : score >= 50 ? 'review' : 'fail';
         const mapped: ATSScoreResponse = {
           score,
           status,
           message: score >= 85 ? '🟢 Excellent!' : score >= 70 ? '🟡 Good!' : '🔴 Needs improvement',
           breakdown: {
-            primary_keywords: { matched: 0, total: 0, percentage: 0, weight: 0.4 },
-            secondary_keywords: { matched: 0, total: 0, percentage: 0, weight: 0.25 },
-            matching_skills: { matched: 0, missing: 0, total: 0, percentage: 0, weight: 0.15 },
-            format_quality: { score: 100, weight: 0.1 },
-            seniority_alignment: { score: 80, weight: 0.1 },
+            primaryKeywords: { matched: 0, total: 0, percentage: 0, weight: 0.4 },
+            secondaryKeywords: { matched: 0, total: 0, percentage: 0, weight: 0.25 },
+            matchingSkills: { matched: 0, missing: 0, total: 0, percentage: 0, weight: 0.15 },
+            formatQuality: { score: 100, weight: 0.1 },
+            seniorityAlignment: { score: 80, weight: 0.1 },
           },
           suggestions: [],
-          tips: baseline.keyword_gaps || [],
-          gaps: baseline.critical_gaps || [],
+          tips: baseline.keywordGaps || [],
+          gaps: baseline.criticalGaps || [],
         };
         setAtsData(mapped);
       } else {
