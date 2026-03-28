@@ -141,7 +141,7 @@ export const OptimizedResumeEditor = ({
       setIsLoading(false);
 
       // Add sample suggestions
-      setSuggestions((prev) => [
+      setSuggestions((prev: Suggestion[]) => [
         ...prev,
         {
           id: `sug-${Date.now()}`,
@@ -164,7 +164,7 @@ export const OptimizedResumeEditor = ({
   };
 
   const handleApplySuggestion = (suggestionId: string) => {
-    const suggestion = suggestions?.find((s) => s.id === suggestionId);
+    const suggestion = suggestions?.find((s: Suggestion) => s.id === suggestionId);
     if (!suggestion) return;
 
     // Replace in LaTeX
@@ -172,12 +172,12 @@ export const OptimizedResumeEditor = ({
     onLatexChange(updatedLatex);
 
     // Mark as applied
-    setSuggestions((prev) =>
-      prev?.map((s) => (s.id === suggestionId ? { ...s, applied: true } : s))
+    setSuggestions((prev: Suggestion[]) =>
+      prev?.map((s: Suggestion) => (s.id === suggestionId ? { ...s, applied: true } : s))
     );
 
     // Add message
-    setMessages((prev) => [
+    setMessages((prev: Message[]) => [
       ...prev,
       {
         id: `msg-${Date.now()}`,
@@ -249,7 +249,7 @@ export const OptimizedResumeEditor = ({
 
   useEffect(() => {
   if (atsData?.improvement_suggestions) {
-    const mapped = atsData.improvement_suggestions?.map((s, idx) => ({
+    const mapped = atsData.improvement_suggestions?.map((s: any, idx) => ({
       id: `sug-${Date.now()}-${s.section}-${s.original}`,
       section: s.section,
       original: s.original,
@@ -258,11 +258,11 @@ export const OptimizedResumeEditor = ({
       applied: false,
     }));
 
-    setSuggestions((prev) => {
+    setSuggestions((prev: any) => {
       const safePrev = Array.isArray(prev) ? prev : [];
 
-      const existingIds = new Set(safePrev.map((p) => p.original));
-      const newOnes = (mapped || []).filter((m) => !existingIds.has(m.original));
+      const existingIds = new Set(safePrev.map((p: any) => p.original));
+      const newOnes = (mapped || []).filter((m: any) => !existingIds.has(m.original));
 
       return [...safePrev, ...newOnes];
     });
@@ -278,7 +278,7 @@ export const OptimizedResumeEditor = ({
     });
   };
 
-  const appliedCount = suggestions?.filter((s) => s.applied).length;
+  const appliedCount = suggestions?.filter((s: any) => s.applied).length;
   const isInputValid = latexCode?.trim() && jobDescription.trim();
   const shouldDisableATS = isCheckingATS || !isInputValid;
   const shouldDisableOptimize = isOptimizing || !isInputValid;
@@ -464,7 +464,7 @@ export const OptimizedResumeEditor = ({
                   </div>
                 </div>
               ) : (
-                suggestions?.map((suggestion) => (
+                suggestions?.map((suggestion: any) => (
                   <div
                     key={suggestion.id}
                     className={`p-4 rounded-xl border transition-all ${
@@ -640,8 +640,9 @@ export const OptimizedResumeEditor = ({
                 </button>
               </div>
 
-              <p className="text-[11px] text-gray-500 mt-2 px-1">
-                Press <span className="font-medium">Enter</span> to send. <span className="font-medium">Shift + Enter</span> to add a new line.
+              <p className="text-[12px] text-gray-500 mt-2 px-1">
+                💡 Describe what you want to improve.
+                {/* Press <span className="font-medium">Enter</span> to send. <span className="font-medium">Shift + Enter</span> to add a new line. */}
               </p>
 
             </div>

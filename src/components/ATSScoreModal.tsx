@@ -74,7 +74,10 @@ interface ATSScoreModalProps {
     role_focus: string;
     seniority_level: string;
 
-    experience_gaps: string[];
+    experience_gaps: {
+      issue: string;
+      impact: string;
+    }[];
 
     section_analysis: {
       section: string;
@@ -82,6 +85,12 @@ interface ATSScoreModalProps {
     }[];
 
     ats_tips: string[];
+    improvement_suggestions?: {
+      section: string;
+      original: string;
+      improved: string;
+      reason: string;
+    }[];
 
     breakdown?: ATSBreakdown; // keep old fallback
   } | null;

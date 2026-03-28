@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Sparkles, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useResumeStore } from '@/store/resumeStore';
-import { resumeApi, jobApplicationApi, llmConfigApi, atsLLMApi, type ATSScoreResponse } from '@/services/api';
+import { resumeApi, jobApplicationApi, llmConfigApi, atsLLMApi, type ATSScoreResponse, ATSSuggestion } from '@/services/api';
 import { PreviewModal } from '@/components/PreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
 import { OptimizedResumeEditor } from '@/components/OptimizedResumeEditor';
@@ -205,53 +205,100 @@ export default function ResumeOptimizationPage() {
       toast.error('Please generate resume and provide job description');
       return;
     }
-
+  
+    if (atsLoading) return; // ✅ prevent double clicks
+  
     setAtsLoading(true);
+  
     try {
+      // 1. Generate PDF
       const { pdfUrl: compiledPdfUrl } = await resumeApi.generatePdf(latexCode);
       setPdfUrl(compiledPdfUrl);
-
+  
+      // 2. Extract text
       const pdfjsLib = await import('pdfjs-dist');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (pdfjsLib as any).GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  
       const pdfDoc = await (pdfjsLib as any).getDocument(compiledPdfUrl).promise;
+  
       let extractedText = '';
+  
       for (let i = 1; i <= pdfDoc.numPages; i++) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const page = await (pdfDoc as any).getPage(i);
         const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((it: { str: string }) => it.str).join(' ');
+  
+        const pageText = textContent.items
+          .map((it: { str: string }) => it.str)
+          .join(' ');
+  
         extractedText += (extractedText ? '\n' : '') + pageText;
       }
-
+  
+      // 3. LLM / API switch
       if (process.env.NEXT_PUBLIC_ATS_LLM_BETA === 'true') {
-        const baseline = await atsLLMApi.baseline({ resumeText: extractedText, jobDescription, force: true });
+        const baseline = await atsLLMApi.baseline({
+          resumeText: extractedText,
+          jobDescription,
+          force: true,
+        });
+  
         const score = baseline.overallScore || 0;
-        const status = score >= 70 ? 'pass' : score >= 50 ? 'review' : 'fail';
+  
         const mapped: ATSScoreResponse = {
           score,
-          status,
-          message: score >= 85 ? '🟢 Excellent!' : score >= 70 ? '🟡 Good!' : '🔴 Needs improvement',
-          breakdown: {
-            primaryKeywords: { matched: 0, total: 0, percentage: 0, weight: 0.4 },
-            secondaryKeywords: { matched: 0, total: 0, percentage: 0, weight: 0.25 },
-            matchingSkills: { matched: 0, missing: 0, total: 0, percentage: 0, weight: 0.15 },
-            formatQuality: { score: 100, weight: 0.1 },
-            seniorityAlignment: { score: 80, weight: 0.1 },
+          status: score >= 70 ? 'pass' : score >= 50 ? 'review' : 'fail',
+          message:
+            score >= 85
+              ? 'Excellent! Your resume is highly optimized.'
+              : score >= 70
+              ? 'Good! Some improvements can boost your score.'
+              : 'Needs improvement to pass ATS filters.',
+  
+          // 🔥 Keep minimal but useful
+          overview: baseline.summary || '',
+  
+          score_breakdown: baseline.scoreBreakdown || {
+            keyword_match: 0,
+            experience_match: 0,
+            formatting: 0,
+            impact: 0,
+            overall: score,
           },
-          suggestions: [],
-          tips: baseline.keywordGaps || [],
-          gaps: baseline.criticalGaps || [],
+  
+          primary_keywords: baseline.keywords || [],
+          secondary_keywords: [],
+          matching_skills: baseline.matchedSkills || [],
+          missing_skills: baseline.keywordGaps || [],
+  
+          role_focus: baseline.role_focus || baseline.roleFocus || '',
+          seniority_level: baseline.seniority_level || baseline.seniority || '',
+  
+          section_analysis: (baseline.section_analysis || baseline.sectionFeedback || []).map((item: any) => ({
+            section: item.section,
+            feedback: item.feedback,
+          })),
+          improvement_suggestions: baseline.improvement_suggestions || [],
+
+          ats_tips: baseline.ats_tips || baseline.keywordGaps || [],
+          experience_gaps: baseline.experience_gaps && Array.isArray(baseline.experience_gaps) && baseline.experience_gaps.length > 0 && typeof baseline.experience_gaps[0] === 'object' 
+            ? baseline.experience_gaps as { issue: string; impact: string; }[]
+            : [],
         };
+  
         setAtsData(mapped);
       } else {
-        const response = await resumeApi.checkATSScore(extractedText, jobDescription);
+        const response = await resumeApi.checkATSScore(
+          extractedText,
+          jobDescription
+        );
         setAtsData(response);
       }
+  
       setShowATSModal(true);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to check ATS score';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to check ATS score';
+  
       toast.error(errorMessage);
     } finally {
       setAtsLoading(false);
@@ -323,7 +370,7 @@ export default function ResumeOptimizationPage() {
           isGeneratingPDF={pdfLoading}
           isCheckingATS={atsLoading}
           activeTab={activeTab}
-          atsData={atsData as any}
+          atsData={atsData as unknown as ATSScoreResponse}
         />
       </div>
 
@@ -333,7 +380,7 @@ export default function ResumeOptimizationPage() {
       )}
 
       {showATSModal && atsData && (
-        <ATSScoreModal isOpen={showATSModal} atsData={atsData} onClose={() => setShowATSModal(false)} />
+        <ATSScoreModal isOpen={showATSModal} atsData={atsData as unknown as ATSScoreResponse} onClose={() => setShowATSModal(false)} />
       )}
     </div>
   );

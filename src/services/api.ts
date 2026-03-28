@@ -52,25 +52,92 @@ export interface OptimizeResumeResponse {
 
 // LLM-based ATS endpoints (baseline + incremental re-score)
 export interface LLMAtsBaseline {
-  requirements: Array<{ id: string; text: string; category: string; priority: string }>;
-  mappings: Array<{ requirementId: string; matchStrength: string; evidence?: string | null; sectionKey?: string; suggestion?: string | null }>;
-  overallScore: number;
-  keywordGaps: string[];
-  strengths: string[];
-  criticalGaps: string[];
-  updatedAt?: string;
+  score?: number;
+  status?: string;
+  message?: string;
+  overview?: string;
+  overallScore?: number;
+
+  summary?: string;
+
+  score_breakdown?: {
+    keyword_match: number;
+    experience_match: number;
+    formatting: number;
+    impact: number;
+    overall: number;
+  };
+  scoreBreakdown?: {
+    keyword_match: number;
+    experience_match: number;
+    formatting: number;
+    impact: number;
+    overall: number;
+  };
+
+  primary_keywords?: string[];
+  secondary_keywords?: string[];
+  matching_skills?: string[];
+  missing_skills?: string[];
+
+  keywords?: string[];
+  matchedSkills?: string[];
+  keywordGaps?: string[];
+
+  role_focus?: string;
+  roleFocus?: string;
+  seniority_level?: string;
+  seniority?: string;
+
+  section_analysis?: {
+    section: string;
+    feedback: string;
+  }[];
+  sectionFeedback?: {
+    section: string;
+    feedback: string;
+  }[];
+
+  ats_tips?: string[];
+  improvement_suggestions?: {
+    section: string;
+    original: string;
+    improved: string;
+    reason: string;
+  }[];
+
+  experience_gaps?: {
+    issue: string;
+    impact: string;
+  }[];
+  criticalGaps?: string[];
 }
 
+type ApiResponse<T> = {
+  status: 'success' | 'error';
+  data: T;
+  message?: string;
+};
+
 export const atsLLMApi = {
-  baseline: async (params: { resumeId?: number; resumeText?: string; jobDescription?: string; force?: boolean }): Promise<LLMAtsBaseline> => {
-    const response = await apiClient.post<{ status: string; data: LLMAtsBaseline }>(
+  baseline: async (params: {
+    resumeId?: number;
+    resumeText?: string;
+    jobDescription?: string;
+    force?: boolean;
+  }): Promise<LLMAtsBaseline> => {
+    const response = await apiClient.post<ApiResponse<LLMAtsBaseline>>(
       '/ats/llm/analysis',
       params
     );
-    if (response.data?.status !== 'success') {
-      throw new Error('Failed to fetch LLM ATS baseline');
+  
+    const res = response?.data;
+  
+    if (!res || res.status !== 'success' || !res.data) {
+      throw new Error(res?.message || 'Failed to fetch LLM ATS baseline');
     }
-    return response.data.data;
+  
+    return res.data;
   },
 
   rescore: async (
@@ -154,10 +221,10 @@ export interface ATSBreakdown {
 }
 
 export interface ATSSuggestion {
-  priority: 'high' | 'medium' | 'low';
-  category: string;
-  message: string;
-  impact: string;
+  section: string;
+  original: string;
+  improved: string;
+  reason: string;
 }
 
 export interface ATSScoreResponse {
@@ -178,13 +245,17 @@ export interface ATSScoreResponse {
   missing_skills: string[];
   role_focus: string;
   seniority_level: string;
-  experience_gaps: string[];
+  experience_gaps: {
+    issue: string;
+    impact: string;
+  }[];
   section_analysis: {
     section: string;
     feedback: string;
   }[];
   ats_tips: string[];
-  breakdown?: ATSBreakdown; 
+  improvement_suggestions: ATSSuggestion[];
+  breakdown?: ATSBreakdown;
 }
 
 export const resumeApi = {
