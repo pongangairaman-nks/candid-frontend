@@ -323,6 +323,7 @@ export default function ResumeOptimizationPage() {
           isGeneratingPDF={pdfLoading}
           isCheckingATS={atsLoading}
           activeTab={activeTab}
+          atsData={atsData as any}
         />
       </div>
 

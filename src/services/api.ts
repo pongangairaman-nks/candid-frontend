@@ -164,10 +164,27 @@ export interface ATSScoreResponse {
   score: number;
   status: string;
   message: string;
-  breakdown: ATSBreakdown;
-  suggestions: ATSSuggestion[];
-  tips: string[];
-  gaps: string[];
+  overview: string;
+  score_breakdown: {
+    keyword_match: number;
+    experience_match: number;
+    formatting: number;
+    impact: number;
+    overall: number;
+  };
+  primary_keywords: string[];
+  secondary_keywords: string[];
+  matching_skills: string[];
+  missing_skills: string[];
+  role_focus: string;
+  seniority_level: string;
+  experience_gaps: string[];
+  section_analysis: {
+    section: string;
+    feedback: string;
+  }[];
+  ats_tips: string[];
+  breakdown?: ATSBreakdown; 
 }
 
 export const resumeApi = {

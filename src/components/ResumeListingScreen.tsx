@@ -72,7 +72,7 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
     try {
       if (modalMode === 'create') {
         const newApp = await jobApplicationApi.create(data);
-        setApplications([newApp, ...applications]);
+        // setApplications([newApp, ...applications]);
         toast.success('Job application created successfully');
         setModalOpen(false);
         // Navigate to resume automation page with the new job ID

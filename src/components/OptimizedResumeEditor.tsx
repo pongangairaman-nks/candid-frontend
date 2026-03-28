@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Send, Sparkles, Copy, Check, Download, TrendingUp, Zap, ChevronDown, ChevronUp, Eye, Wand2 } from 'lucide-react';
-import { llmConfigApi, resumeApi } from '@/services/api';
+import { llmConfigApi, resumeApi, type ATSScoreResponse } from '@/services/api';
 import { toast } from 'react-toastify';
 
 interface Suggestion {
@@ -32,6 +32,7 @@ interface OptimizedResumeEditorProps {
   isGeneratingPDF?: boolean;
   isCheckingATS?: boolean;
   activeTab?: 'resume' | 'coverLetter';
+  atsData?: ATSScoreResponse;
 }
 
 export const OptimizedResumeEditor = ({
@@ -44,7 +45,9 @@ export const OptimizedResumeEditor = ({
   isGeneratingPDF = false,
   isCheckingATS = false,
   activeTab = 'resume',
+  atsData,
 }: OptimizedResumeEditorProps) => {
+  console.log('atsData', atsData);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -58,8 +61,8 @@ export const OptimizedResumeEditor = ({
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [latexCopied, setLatexCopied] = useState(false);
   const [jdCopied, setJdCopied] = useState(false);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<any>([]);
+  const [expandedSuggestions, setExpandedSuggestions] = useState<string[]>([]);
   const [activeRightTab, setActiveRightTab] = useState<'suggestions' | 'chat'>('suggestions');
   const [llmConfig, setLlmConfig] = useState<{
     masterResumePrompt?: string;
@@ -161,7 +164,7 @@ export const OptimizedResumeEditor = ({
   };
 
   const handleApplySuggestion = (suggestionId: string) => {
-    const suggestion = suggestions.find((s) => s.id === suggestionId);
+    const suggestion = suggestions?.find((s) => s.id === suggestionId);
     if (!suggestion) return;
 
     // Replace in LaTeX
@@ -170,7 +173,7 @@ export const OptimizedResumeEditor = ({
 
     // Mark as applied
     setSuggestions((prev) =>
-      prev.map((s) => (s.id === suggestionId ? { ...s, applied: true } : s))
+      prev?.map((s) => (s.id === suggestionId ? { ...s, applied: true } : s))
     );
 
     // Add message
@@ -198,8 +201,11 @@ export const OptimizedResumeEditor = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && e.ctrlKey) {
-      handleSendMessage();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault(); // ⛔ prevents newline
+      if (!isLoading && inputValue.trim()) {
+        handleSendMessage();
+      }
     }
   };
 
@@ -241,8 +247,39 @@ export const OptimizedResumeEditor = ({
     }
   };
 
-  const appliedCount = suggestions.filter((s) => s.applied).length;
-  const isInputValid = latexCode.trim() && jobDescription.trim();
+  useEffect(() => {
+  if (atsData?.improvement_suggestions) {
+    const mapped = atsData.improvement_suggestions?.map((s, idx) => ({
+      id: `sug-${Date.now()}-${s.section}-${s.original}`,
+      section: s.section,
+      original: s.original,
+      improved: s.improved,
+      reason: s.reason,
+      applied: false,
+    }));
+
+    setSuggestions((prev) => {
+      const safePrev = Array.isArray(prev) ? prev : [];
+
+      const existingIds = new Set(safePrev.map((p) => p.original));
+      const newOnes = (mapped || []).filter((m) => !existingIds.has(m.original));
+
+      return [...safePrev, ...newOnes];
+    });
+    }
+  }, [atsData]);
+
+  const toggleSuggestion = (id: string) => {
+    setExpandedSuggestions((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((item) => item !== id); // close only this
+      }
+      return [...prev, id]; // open only this
+    });
+  };
+
+  const appliedCount = suggestions?.filter((s) => s.applied).length;
+  const isInputValid = latexCode?.trim() && jobDescription.trim();
   const shouldDisableATS = isCheckingATS || !isInputValid;
   const shouldDisableOptimize = isOptimizing || !isInputValid;
 
@@ -399,7 +436,7 @@ export const OptimizedResumeEditor = ({
             >
               <div className="flex items-center space-x-2">
                 <Zap className="w-4 h-4" />
-                <span>Suggestions ({suggestions.length})</span>
+                <span>Suggestions ({suggestions?.length})</span>
               </div>
             </button>
             <button
@@ -418,7 +455,7 @@ export const OptimizedResumeEditor = ({
           {activeRightTab === 'suggestions' ? (
             // Suggestions Panel
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {suggestions.length === 0 ? (
+              {suggestions?.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-center">
                   <div>
                     <Zap className="w-8 h-8 text-gray-300 mx-auto mb-2" />
@@ -427,63 +464,93 @@ export const OptimizedResumeEditor = ({
                   </div>
                 </div>
               ) : (
-                suggestions.map((suggestion) => (
+                suggestions?.map((suggestion) => (
                   <div
                     key={suggestion.id}
-                    className={`p-3 rounded-lg border transition-all ${
+                    className={`p-4 rounded-xl border transition-all ${
                       suggestion.applied
                         ? 'bg-green-50 border-green-200'
-                        : 'bg-white border-gray-200 hover:border-blue-300'
+                        : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'
                     }`}
                   >
                     <button
-                      onClick={() =>
-                        setExpandedSuggestion(
-                          expandedSuggestion === suggestion.id ? null : suggestion.id
-                        )
-                      }
-                      className="w-full flex items-start justify-between"
+                      onClick={() => toggleSuggestion(suggestion.id)}
+                      className="w-full flex items-start justify-between gap-3"
                     >
                       <div className="text-left flex-1">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                
+                        {/* Section + Status */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">
                             {suggestion.section}
                           </span>
+                
                           {suggestion.applied && (
-                            <Check className="w-4 h-4 text-green-600" />
+                            <span className="text-[10px] text-green-600 bg-green-100 px-2 py-1 rounded-full">
+                              Applied
+                            </span>
                           )}
                         </div>
-                        <p className="text-xs text-gray-600 mt-2 line-clamp-2">
+                
+                        {/* Reason */}
+                        <p className="text-xs text-gray-700 font-medium line-clamp-2">
                           {suggestion.reason}
                         </p>
+                
+                        {/* Improved preview (1 line hint) */}
+                        <p className="text-[11px] text-blue-600 mt-1 line-clamp-1">
+                          → {suggestion.improved}
+                        </p>
                       </div>
-                      {expandedSuggestion === suggestion.id ? (
-                        <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
+                
+                      {expandedSuggestions.includes(suggestion.id) ? (
+                        <ChevronUp className="w-4 h-4 text-gray-400 mt-1" />
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
+                        <ChevronDown className="w-4 h-4 text-gray-400 mt-1" />
                       )}
                     </button>
-
-                    {expandedSuggestion === suggestion.id && (
-                      <div className="mt-3 space-y-2 pt-3 border-t border-gray-200">
+                
+                    {/* Expanded View */}
+                    {expandedSuggestions.includes(suggestion.id) && (
+                      <div className="mt-4 space-y-3 border-t pt-3 border-gray-200">
+                
+                        {/* Original */}
                         <div>
-                          <p className="text-xs font-medium text-gray-700 mb-1">Original:</p>
-                          <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded font-mono">
+                          <p className="text-[11px] font-semibold text-gray-500 mb-1">
+                            Original
+                          </p>
+                          <div className="text-xs text-gray-700 bg-gray-50 p-2 rounded-lg border border-gray-200">
                             {suggestion.original}
-                          </p>
+                          </div>
                         </div>
+                
+                        {/* Improved */}
                         <div>
-                          <p className="text-xs font-medium text-gray-700 mb-1">Improved:</p>
-                          <p className="text-xs text-gray-600 bg-blue-50 p-2 rounded font-mono">
+                          <p className="text-[11px] font-semibold text-green-600 mb-1">
+                            Improved
+                          </p>
+                          <div className="text-xs text-gray-800 bg-green-50 p-2 rounded-lg border border-green-200">
                             {suggestion.improved}
+                          </div>
+                        </div>
+                
+                        {/* Reason (detailed) */}
+                        <div>
+                          <p className="text-[11px] font-semibold text-gray-500 mb-1">
+                            Why this matters
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {suggestion.reason}
                           </p>
                         </div>
+                
+                        {/* CTA */}
                         {!suggestion.applied && (
                           <button
                             onClick={() => handleApplySuggestion(suggestion.id)}
-                            className="w-full mt-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-medium rounded-lg hover:shadow-lg hover:shadow-blue-500/20 transition-all"
+                            className="w-full mt-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-medium rounded-lg hover:shadow-md transition"
                           >
-                            Apply This Suggestion
+                            Apply Suggestion
                           </button>
                         )}
                       </div>
@@ -494,84 +561,92 @@ export const OptimizedResumeEditor = ({
             </div>
           ) : (
             // Chat Panel
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.map((message) => (
+           <div className="flex-1 flex flex-col overflow-hidden">
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5">
+
+              {messages?.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
                   <div
-                    key={message.id}
-                    className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                    className={`max-w-[75%] px-4 py-3 rounded-2xl shadow-sm transition ${
+                      message.type === 'user'
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-br-sm'
+                        : message.type === 'system'
+                        ? 'bg-green-50 text-gray-900 border border-green-200 rounded-bl-sm'
+                        : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-200 border border-gray-200 dark:border-slate-700 rounded-bl-sm'
+                    }`}
                   >
-                    <div
-                      className={`max-w-xs px-4 py-3 rounded-xl ${
-                        message.type === 'user'
-                          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-br-none'
-                          : message.type === 'system'
-                          ? 'bg-green-50 text-gray-900 border border-green-200/50 rounded-bl-none'
-                          : 'bg-gray-100 text-gray-900 rounded-bl-none'
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {message.content}
+                    </p>
+
+                    <p
+                      className={`text-[10px] mt-2 opacity-70 ${
+                        message.type === 'user' ? 'text-blue-100' : 'text-gray-500'
                       }`}
                     >
-                      <p className="text-sm">{message.content}</p>
-                      <p
-                        className={`text-xs mt-2 ${
-                          message.type === 'user' ? 'text-blue-100' : 'text-gray-500'
-                        }`}
-                      >
-                        {message.timestamp.toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
+                      {message.timestamp.toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
                   </div>
-                ))}
-
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-gray-100 text-gray-900 px-4 py-3 rounded-xl rounded-bl-none">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                        <div
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: '0.1s' }}
-                        />
-                        <div
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: '0.2s' }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Input Area */}
-              <div className="border-t border-gray-200/50 bg-gray-50/50 p-3 space-y-2">
-                <div className="flex gap-2">
-                  <textarea
-                    ref={inputRef}
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Ask for improvements... (Ctrl+Enter to send)"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-                    rows={2}
-                    disabled={isLoading}
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={!inputValue.trim() || isLoading}
-                    className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center"
-                    title="Send message (Ctrl+Enter)"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
                 </div>
-                <p className="text-xs text-gray-500 px-1">💡 Describe what you want to improve</p>
-              </div>
+              ))}
+
+              {/* Typing Indicator */}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="px-4 py-3 rounded-2xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm">
+                    <div className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.15s]" />
+                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.3s]" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
             </div>
+
+            {/* Input Area */}
+            <div className="border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3">
+
+              <div className="flex items-end gap-2">
+
+                <textarea
+                  ref={inputRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask for improvements..."
+                  className="flex-1 px-3 py-2 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none leading-5"
+                  rows={2}
+                  disabled={isLoading}
+                />
+
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!inputValue.trim() || isLoading}
+                  className="h-10 w-10 flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 transition"
+                  title="Send message (Ctrl+Enter)"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+
+              <p className="text-[11px] text-gray-500 mt-2 px-1">
+                Press <span className="font-medium">Enter</span> to send. <span className="font-medium">Shift + Enter</span> to add a new line.
+              </p>
+
+            </div>
+
+          </div>
           )}
         </div>
       </div>
