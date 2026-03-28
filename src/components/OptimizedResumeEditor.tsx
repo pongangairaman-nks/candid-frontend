@@ -322,7 +322,7 @@ export const OptimizedResumeEditor = ({
 
             {/* Footer */}
             <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500">
-              <p>Words: {jobDescription.split(/\s+/).filter((w) => w.length > 0).length}</p>
+              <p>Words: {jobDescription?.split(/\s+/)?.filter((w) => w.length > 0).length}</p>
             </div>
           </div>
 
@@ -343,6 +343,10 @@ export const OptimizedResumeEditor = ({
               placeholder="Master prompt will appear here..."
               className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-white placeholder:text-gray-400"
             />
+            {/* Footer */}
+            <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500">
+              <p>Words: {masterPrompt?.split(/\s+/)?.filter((w) => w.length > 0).length}</p>
+            </div>
           </div>
         </div>
 

@@ -4,9 +4,10 @@ import { FileText, AlertCircle, Save, Loader, CheckCircle, Info, Lightbulb, Copy
 import { useResumeStore } from '@/store/resumeStore';
 import { resumeApi, llmConfigApi, atsLLMApi, type LlmUsageTotals, type LlmUsageEntry } from '@/services/api';
 import { LLMConfigSection } from '@/components/LLMConfigSection';
+import { MasterContentAccordion, type ContentSection } from '@/components/MasterContentAccordion';
 import { useState, useEffect, useRef, memo, useCallback } from 'react';
 
-type TabType = 'llm' | 'template' | 'content' | 'prompts';
+type TabType = 'llm' | 'template' | 'content' | 'prompts' | 'usage';
 
 // Memoized LLM Config Section to prevent unnecessary re-renders
 const MemoizedLLMConfigSection = memo(LLMConfigSection);
@@ -16,7 +17,7 @@ export default function ConfigurationPage() {
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('llm');
-  const [masterContent, setMasterContent] = useState('');
+  const [masterContentSections, setMasterContentSections] = useState<ContentSection[]>([]);
   const [contentSaved, setContentSaved] = useState(false);
   const [contentLoading, setContentLoading] = useState(false);
   const [masterCoverLetter, setMasterCoverLetter] = useState('');
@@ -84,7 +85,7 @@ export default function ConfigurationPage() {
         
         // Prefill master content if it exists
         if (llmConfigRes.masterContent) {
-          setMasterContent(llmConfigRes.masterContent);
+          setMasterContentSections(llmConfigRes.masterContent);
         }
         
         // Prefill master prompts if they exist
@@ -143,8 +144,8 @@ export default function ConfigurationPage() {
   };
 
   const handleSaveMasterContent = async () => {
-    if (!masterContent.trim()) {
-      setError('Please paste content before saving');
+    if (masterContentSections?.length === 0 || !masterContentSections?.some((s: ContentSection) => s.content.trim())) {
+      setError('Please add content to at least one section before saving');
       return;
     }
 
@@ -162,7 +163,7 @@ export default function ConfigurationPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          masterContent: masterContent,
+          masterContent: masterContentSections,
         }),
       });
 
@@ -202,6 +203,7 @@ export default function ConfigurationPage() {
     }
   };
 
+  console.log('masterContentSections', masterContentSections);
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
@@ -224,6 +226,16 @@ export default function ConfigurationPage() {
             }`}
           >
             LLM Configuration
+          </button>
+          <button
+            onClick={() => setActiveTab('usage')}
+            className={`py-4 px-2 font-medium text-sm border-b-2 transition-colors ${
+              activeTab === 'usage'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-300'
+            }`}
+          >
+            LLM Usage
           </button>
           <button
             onClick={() => setActiveTab('prompts')}
@@ -264,7 +276,12 @@ export default function ConfigurationPage() {
         {activeTab === 'llm' && (
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
             <MemoizedLLMConfigSection />
+          </div>
+        )}
 
+        {/* LLL ATS Usage Tab */}
+        {activeTab === 'usage' && (
+          <div className="space-y-6  h-full flex flex-col">
             <div className="mt-6 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">LLM ATS Usage</h3>
               <button
@@ -334,6 +351,173 @@ export default function ConfigurationPage() {
           </div>
         )}
 
+        {/* Master Prompts Tab */}
+        {activeTab === 'prompts' && (
+          <div className="space-y-6  h-full flex flex-col">
+            {/* Two Column Layout */}
+            <div className="grid grid-cols-2 gap-6 h-full flex-1">
+              {/* Master Resume Prompt Section */}
+              <div className="flex flex-col min-h-0 h-full">
+                <div className="flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden min-h-0 h-full">
+                  {/* Header */}
+                  <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center justify-between shrink-0">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">Master Resume Prompt</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Default optimization instructions</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(masterResumePrompt);
+                        setCopiedPrompt('resume');
+                        setTimeout(() => setCopiedPrompt(null), 2000);
+                      }}
+                      className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors shrink-0"
+                      title="Copy prompt"
+                    >
+                      {copiedPrompt === 'resume' ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-gray-600" />
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Textarea */}
+                  <textarea
+                    value={masterResumePrompt}
+                    onChange={(e) => {
+                      setMasterResumePrompt(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="Enter the default prompt for resume optimization..."
+                    className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-white placeholder:text-gray-400 min-h-0"
+                  />
+
+                  {/* Footer */}
+                  <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500 shrink-0">
+                    <p>Characters: {masterResumePrompt.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Master Cover Letter Prompt Section */}
+              <div className="flex flex-col min-h-0 h-full">
+                <div className="flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden min-h-0 h-full">
+                  {/* Header */}
+                  <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center justify-between shrink-0">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">Master Cover Letter Prompt</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Default generation instructions</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(masterCoverLetterPrompt);
+                        setCopiedPrompt('coverLetter');
+                        setTimeout(() => setCopiedPrompt(null), 2000);
+                      }}
+                      className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors shrink-0"
+                      title="Copy prompt"
+                    >
+                      {copiedPrompt === 'coverLetter' ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-gray-600" />
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Textarea */}
+                  <textarea
+                    value={masterCoverLetterPrompt}
+                    onChange={(e) => {
+                      setMasterCoverLetterPrompt(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="Enter the default prompt for cover letter generation..."
+                    className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-white placeholder:text-gray-400 min-h-0"
+                  />
+
+                  {/* Footer */}
+                  <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500 shrink-0">
+                    <p>Characters: {masterCoverLetterPrompt.length}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex gap-3">
+                <AlertCircle size={18} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {promptsSaved && (
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex gap-3">
+                <CheckCircle size={18} className="text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-green-700 dark:text-green-300">Master prompts saved successfully!</p>
+              </div>
+            )}
+
+            {/* Save and Clear Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  if (!masterResumePrompt.trim() && !masterCoverLetterPrompt.trim()) {
+                    setError('Please enter at least one prompt');
+                    return;
+                  }
+
+                  setPromptsLoading(true);
+                  setError(null);
+
+                  try {
+                    await llmConfigApi.updateConfig({
+                      masterResumePrompt: masterResumePrompt || undefined,
+                      masterCoverLetterPrompt: masterCoverLetterPrompt || undefined,
+                    });
+                    setPromptsSaved(true);
+                    setTimeout(() => setPromptsSaved(false), 3000);
+                  } catch (err) {
+                    const errorMessage = err instanceof Error ? err.message : 'Failed to save master prompts';
+                    setError(errorMessage);
+                  } finally {
+                    setPromptsLoading(false);
+                  }
+                }}
+                disabled={(!masterResumePrompt.trim() && !masterCoverLetterPrompt.trim()) || promptsLoading}
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
+              >
+                {promptsLoading ? (
+                  <>
+                    <Loader size={18} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} />
+                    Save Master Prompts
+                  </>
+                )}
+              </button>
+              {(masterResumePrompt || masterCoverLetterPrompt) && (
+                <button
+                  onClick={() => {
+                    setMasterResumePrompt('');
+                    setMasterCoverLetterPrompt('');
+                    setError(null);
+                  }}
+                  className="px-6 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 font-medium transition-colors"
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        
         {/* Master Template Tab */}
         {activeTab === 'template' && (
           <div className="flex flex-col min-h-0 h-full">
@@ -511,80 +695,48 @@ export default function ConfigurationPage() {
 
         {/* Master Content Tab */}
         {activeTab === 'content' && (
-          <div className="flex flex-col min-h-0 h-full">
-            <div className="flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden min-h-0 h-full">
-              {/* Header */}
-              <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center justify-between shrink-0">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Master Content</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Comprehensive skills and experiences</p>
-                </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(masterContent);
-                    setCopiedContent(true);
-                    setTimeout(() => setCopiedContent(false), 2000);
-                  }}
-                  className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors shrink-0"
-                  title="Copy content"
-                >
-                  {copiedContent ? (
-                    <Check className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <Copy className="w-4 h-4 text-gray-600" />
-                  )}
-                </button>
-              </div>
-
-              {/* Textarea */}
-              <textarea
-                value={masterContent}
-                onChange={(e) => {
-                  if (e.target.value.length <= 50000) {
-                    setMasterContent(e.target.value);
-                    setError(null);
-                  }
-                }}
-                placeholder="Paste your comprehensive skills, experiences, projects, certifications, and achievements here..."
-                className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-white placeholder:text-gray-400 min-h-0"
+          <div className="flex flex-col min-h-0 h-full space-y-6">
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              <MasterContentAccordion 
+                sections={masterContentSections}
+                onSectionsChange={setMasterContentSections}
+                maxCharacters={50000}
               />
-
-              {/* Footer */}
-              <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500 shrink-0">
-                <p>Characters: {masterContent.length} / 50000</p>
-              </div>
             </div>
 
             {/* Info Box */}
-            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3 shrink-0">
-              <Lightbulb size={18} className="text-blue-600 shrink-0 mt-0.5" />
-              <p className="text-sm text-blue-700">
-                <strong>Tip:</strong> Include skills you haven&apos;t used recently, side projects, certifications, and detailed achievements with metrics. This helps the LLM find better matches for job descriptions.
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs text-blue-800">
+                <strong>💡 Tip:</strong> Organize your master content by section. This makes it easier for AI models to understand and optimize your resume for specific job requirements.
               </p>
-            </div>
+             </div>    
 
             {/* Error Display */}
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex gap-3 shrink-0">
-                <AlertCircle size={18} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+              <div className="px-6 bg-red-50 border-t border-red-200 py-4">
+                <div className="flex gap-3">
+                  <AlertCircle size={18} className="text-red-600 shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
               </div>
             )}
 
             {/* Success Message */}
             {contentSaved && (
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex gap-3 shrink-0">
-                <CheckCircle size={18} className="text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
-                <p className="text-sm text-green-700 dark:text-green-300">Master content saved successfully!</p>
+              <div className="px-6 bg-green-50 border-t border-green-200 py-4">
+                <div className="flex gap-3">
+                  <CheckCircle size={18} className="text-green-600 shrink-0 mt-0.5" />
+                  <p className="text-sm text-green-700">Master content saved successfully!</p>
+                </div>
               </div>
             )}
 
             {/* Save and Clear Buttons */}
-            <div className="flex gap-3 shrink-0 pt-6">
+            <div className="flex gap-3 px-6 pb-6 shrink-0">
               <button
                 onClick={handleSaveMasterContent}
-                disabled={!masterContent.trim() || contentLoading}
-                className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
+                disabled={masterContentSections?.length === 0 || contentLoading}
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors"
               >
                 {contentLoading ? (
                   <>
@@ -598,182 +750,15 @@ export default function ConfigurationPage() {
                   </>
                 )}
               </button>
-              {masterContent && (
+              {masterContentSections?.length > 0 && masterContentSections?.some((s: ContentSection) => s.content) && (
                 <button
                   onClick={() => {
-                    setMasterContent('');
+                    setMasterContentSections([]);
                     setError(null);
                   }}
-                  className="px-6 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 font-medium transition-colors"
+                  className="px-6 py-3 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium transition-colors"
                 >
                   Clear
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Master Prompts Tab */}
-        {activeTab === 'prompts' && (
-          <div className="space-y-6  h-full flex flex-col">
-            {/* Two Column Layout */}
-            <div className="grid grid-cols-2 gap-6 h-full flex-1">
-              {/* Master Resume Prompt Section */}
-              <div className="flex flex-col min-h-0 h-full">
-                <div className="flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden min-h-0 h-full">
-                  {/* Header */}
-                  <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center justify-between shrink-0">
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-900">Master Resume Prompt</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">Default optimization instructions</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(masterResumePrompt);
-                        setCopiedPrompt('resume');
-                        setTimeout(() => setCopiedPrompt(null), 2000);
-                      }}
-                      className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors shrink-0"
-                      title="Copy prompt"
-                    >
-                      {copiedPrompt === 'resume' ? (
-                        <Check className="w-4 h-4 text-green-600" />
-                      ) : (
-                        <Copy className="w-4 h-4 text-gray-600" />
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Textarea */}
-                  <textarea
-                    value={masterResumePrompt}
-                    onChange={(e) => {
-                      setMasterResumePrompt(e.target.value);
-                      setError(null);
-                    }}
-                    placeholder="Enter the default prompt for resume optimization..."
-                    className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-white placeholder:text-gray-400 min-h-0"
-                  />
-
-                  {/* Footer */}
-                  <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500 shrink-0">
-                    <p>Characters: {masterResumePrompt.length}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Master Cover Letter Prompt Section */}
-              <div className="flex flex-col min-h-0 h-full">
-                <div className="flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden min-h-0 h-full">
-                  {/* Header */}
-                  <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center justify-between shrink-0">
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-900">Master Cover Letter Prompt</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">Default generation instructions</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(masterCoverLetterPrompt);
-                        setCopiedPrompt('coverLetter');
-                        setTimeout(() => setCopiedPrompt(null), 2000);
-                      }}
-                      className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors shrink-0"
-                      title="Copy prompt"
-                    >
-                      {copiedPrompt === 'coverLetter' ? (
-                        <Check className="w-4 h-4 text-green-600" />
-                      ) : (
-                        <Copy className="w-4 h-4 text-gray-600" />
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Textarea */}
-                  <textarea
-                    value={masterCoverLetterPrompt}
-                    onChange={(e) => {
-                      setMasterCoverLetterPrompt(e.target.value);
-                      setError(null);
-                    }}
-                    placeholder="Enter the default prompt for cover letter generation..."
-                    className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-sm text-gray-700 bg-white placeholder:text-gray-400 min-h-0"
-                  />
-
-                  {/* Footer */}
-                  <div className="border-t border-gray-200/50 bg-gray-50/50 px-4 py-2 text-xs text-gray-500 shrink-0">
-                    <p>Characters: {masterCoverLetterPrompt.length}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Error Display */}
-            {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex gap-3">
-                <AlertCircle size={18} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-              </div>
-            )}
-
-            {/* Success Message */}
-            {promptsSaved && (
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex gap-3">
-                <CheckCircle size={18} className="text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
-                <p className="text-sm text-green-700 dark:text-green-300">Master prompts saved successfully!</p>
-              </div>
-            )}
-
-            {/* Save and Clear Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={async () => {
-                  if (!masterResumePrompt.trim() && !masterCoverLetterPrompt.trim()) {
-                    setError('Please enter at least one prompt');
-                    return;
-                  }
-
-                  setPromptsLoading(true);
-                  setError(null);
-
-                  try {
-                    await llmConfigApi.updateConfig({
-                      masterResumePrompt: masterResumePrompt || undefined,
-                      masterCoverLetterPrompt: masterCoverLetterPrompt || undefined,
-                    });
-                    setPromptsSaved(true);
-                    setTimeout(() => setPromptsSaved(false), 3000);
-                  } catch (err) {
-                    const errorMessage = err instanceof Error ? err.message : 'Failed to save master prompts';
-                    setError(errorMessage);
-                  } finally {
-                    setPromptsLoading(false);
-                  }
-                }}
-                disabled={(!masterResumePrompt.trim() && !masterCoverLetterPrompt.trim()) || promptsLoading}
-                className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold transition-colors dark:disabled:bg-slate-700"
-              >
-                {promptsLoading ? (
-                  <>
-                    <Loader size={18} className="animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save size={18} />
-                    Save Master Prompts
-                  </>
-                )}
-              </button>
-              {(masterResumePrompt || masterCoverLetterPrompt) && (
-                <button
-                  onClick={() => {
-                    setMasterResumePrompt('');
-                    setMasterCoverLetterPrompt('');
-                    setError(null);
-                  }}
-                  className="px-6 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 font-medium transition-colors"
-                >
-                  Clear All
                 </button>
               )}
             </div>

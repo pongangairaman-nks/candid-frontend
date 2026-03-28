@@ -595,8 +595,13 @@ export interface JobApplication {
   updatedAt?: string;
 }
 
+export interface MasterContentSection {
+  id: string;
+  title: string;
+  content: string;
+}
 export interface LLMConfig {
-  masterContent?: string;
+  masterContent?: MasterContentSection[];
   masterResumePrompt?: string;
   masterCoverLetterPrompt?: string;
   masterResume?: string;

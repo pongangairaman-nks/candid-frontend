@@ -11,6 +11,12 @@ interface ConfigCache {
   timestamp: number;
 }
 
+interface MasterContentSection {
+  id: string;
+  title: string;
+  content: string;
+}
+
 interface LLMConfigData {
   analyzerProvider: string;
   analyzerModel: string;
@@ -18,7 +24,7 @@ interface LLMConfigData {
   generatorProvider: string;
   generatorModel: string;
   generatorApiKey: string | null;
-  masterContent: string | null;
+  masterContent: MasterContentSection[] | null;
   useLatexTemplate: boolean;
 }
 
