@@ -9,9 +9,12 @@ interface Suggestion {
   id: string;
   section: string;
   original: string;
+  originalLatex?: string; // Exact LaTeX code to replace
   improved: string;
+  improvedLatex?: string; // Improved LaTeX code
   reason: string;
   applied: boolean;
+  originalLatexBeforeApply?: string; // Store original LaTeX for undo
 }
 
 interface Message {
@@ -258,13 +261,31 @@ export const OptimizedResumeEditor = ({
     const suggestion = suggestions?.find((s: Suggestion) => s.id === suggestionId);
     if (!suggestion) return;
 
+    // Use improvedLatex if available (exact LaTeX replacement), fallback to improved text
+    const textToReplace = suggestion.originalLatex || suggestion.original;
+    const replacementText = suggestion.improvedLatex || suggestion.improved;
+
     // Replace in LaTeX
-    const updatedLatex = latexCode.replace(suggestion.original, suggestion.improved);
+    let updatedLatex = latexCode;
+    
+    if (latexCode.includes(textToReplace)) {
+      updatedLatex = latexCode.replace(textToReplace, replacementText);
+    } else {
+      // Fallback: try to find and replace using fuzzy matching
+      console.warn(`⚠️ Exact match not found for: "${textToReplace}". Attempting fuzzy match...`);
+      toast.warning('Could not find exact match. Please check the suggestion.');
+      return;
+    }
+
     onLatexChange(updatedLatex);
 
-    // Mark as applied
+    // Mark as applied and store original LaTeX for undo
     setSuggestions((prev: Suggestion[]) =>
-      prev?.map((s: Suggestion) => (s.id === suggestionId ? { ...s, applied: true } : s))
+      prev?.map((s: Suggestion) => 
+        s.id === suggestionId 
+          ? { ...s, applied: true, originalLatexBeforeApply: latexCode } 
+          : s
+      )
     );
 
     // Add message
@@ -277,6 +298,66 @@ export const OptimizedResumeEditor = ({
         timestamp: new Date(),
       },
     ]);
+
+    toast.success('Suggestion applied successfully!');
+  };
+
+  const handleUndoSuggestion = (suggestionId: string) => {
+    const suggestion = suggestions?.find((s: Suggestion) => s.id === suggestionId);
+    if (!suggestion || !suggestion.originalLatexBeforeApply) return;
+
+    // Restore original LaTeX
+    onLatexChange(suggestion.originalLatexBeforeApply);
+
+    // Mark as not applied
+    setSuggestions((prev: Suggestion[]) =>
+      prev?.map((s: Suggestion) => 
+        s.id === suggestionId 
+          ? { ...s, applied: false, originalLatexBeforeApply: undefined } 
+          : s
+      )
+    );
+
+    // Add message
+    setMessages((prev: Message[]) => [
+      ...prev,
+      {
+        id: `msg-${Date.now()}`,
+        type: 'system',
+        content: `↩ Undone: "${suggestion.improved}"`,
+        timestamp: new Date(),
+      },
+    ]);
+  };
+
+  const highlightSectionInLatex = (originalText: string) => {
+    if (!latexRef.current) return;
+
+    // Find the original text in the LaTeX code
+    const index = latexCode.indexOf(originalText);
+    
+    if (index !== -1) {
+      // Calculate line number for smooth scrolling
+      const lines = latexCode.substring(0, index).split('\n').length - 1;
+      const lineHeight = parseInt(window.getComputedStyle(latexRef.current).lineHeight);
+      const targetScrollTop = lines * lineHeight;
+      
+      // Smooth scroll to the section
+      latexRef.current.scrollTo({
+        top: targetScrollTop,
+        behavior: 'smooth',
+      });
+      
+      // Set selection to highlight the text
+      latexRef.current.setSelectionRange(index, index + originalText.length);
+      latexRef.current.focus();
+      
+      // Add subtle and elegant highlight with soft blue ring
+      latexRef.current.classList.add('ring-2', 'ring-blue-300', 'ring-opacity-60');
+      setTimeout(() => {
+        latexRef.current?.classList.remove('ring-2', 'ring-blue-300', 'ring-opacity-60');
+      }, 3500);
+    }
   };
 
   const handleCopyLatex = () => {
@@ -361,34 +442,37 @@ export const OptimizedResumeEditor = ({
     }
   };
 
+  // Load suggestions from atsData API response
   useEffect(() => {
-  if (atsData?.improvement_suggestions) {
-    const mapped = atsData.improvement_suggestions?.map((s: any, idx) => ({
-      id: `sug-${Date.now()}-${s.section}-${s.original}`,
-      section: s.section,
-      original: s.original,
-      improved: s.improved,
-      reason: s.reason,
-      applied: false,
-    }));
+    if (atsData?.improvement_suggestions) {
+      const mapped = atsData.improvement_suggestions?.map((s: any, idx: number) => ({
+        id: `sug-${Date.now()}-${idx}`,
+        section: s.section as string,
+        original: s.original as string,
+        originalLatex: s.originalLatex as string | undefined,
+        improved: s.improved as string,
+        improvedLatex: s.improvedLatex as string | undefined,
+        reason: s.reason as string,
+        applied: false,
+      }));
 
-    setSuggestions((prev: any) => {
-      const safePrev = Array.isArray(prev) ? prev : [];
+      setSuggestions((prev: Suggestion[]) => {
+        const safePrev = Array.isArray(prev) ? prev : [];
 
-      const existingIds = new Set(safePrev.map((p: any) => p.original));
-      const newOnes = (mapped || []).filter((m: any) => !existingIds.has(m.original));
+        const existingIds = new Set(safePrev.map((p: Suggestion) => p.original));
+        const newOnes = (mapped || []).filter((m: Suggestion) => !existingIds.has(m.original));
 
-      return [...safePrev, ...newOnes];
-    });
+        return [...safePrev, ...newOnes];
+      });
     }
-  }, [atsData]);
+  }, [atsData?.improvement_suggestions]);
 
   const toggleSuggestion = (id: string) => {
-    setExpandedSuggestions((prev) => {
+    setExpandedSuggestions((prev: string[]) => {
       if (prev.includes(id)) {
-        return prev.filter((item) => item !== id); // close only this
+        return prev.filter((item: string) => item !== id); // close only this
       }
-      return [...prev, id]; // open only this
+      return [...prev, id]; // open this
     });
   };
 
@@ -654,7 +738,13 @@ export const OptimizedResumeEditor = ({
                     }`}
                   >
                     <button
-                      onClick={() => toggleSuggestion(suggestion.id)}
+                      onClick={() => {
+                        toggleSuggestion(suggestion.id);
+                        // Highlight the original text in the LaTeX editor
+                        setTimeout(() => {
+                          highlightSectionInLatex(suggestion.original);
+                        }, 100);
+                      }}
                       className="w-full flex items-start justify-between gap-3"
                     >
                       <div className="text-left flex-1">
@@ -725,12 +815,19 @@ export const OptimizedResumeEditor = ({
                         </div>
                 
                         {/* CTA */}
-                        {!suggestion.applied && (
+                        {!suggestion.applied ? (
                           <button
                             onClick={() => handleApplySuggestion(suggestion.id)}
-                            className="w-full mt-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-medium rounded-lg hover:shadow-md transition"
+                            className="w-full mt-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg hover:shadow-md transition"
                           >
                             Apply Suggestion
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleUndoSuggestion(suggestion.id)}
+                            className="w-full mt-2 px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-medium rounded-lg hover:shadow-md transition"
+                          >
+                            ↩ Undo
                           </button>
                         )}
                       </div>

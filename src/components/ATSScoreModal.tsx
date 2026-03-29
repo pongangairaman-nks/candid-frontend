@@ -242,7 +242,7 @@ export const ATSScoreModal = ({
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700 px-6 pt-4">
+            <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700 px-6">
               {["overview", "breakdown", "suggestions", "analysis"].map(
                 (tab) => (
                   <button
