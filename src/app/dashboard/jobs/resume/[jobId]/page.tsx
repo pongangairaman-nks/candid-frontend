@@ -211,33 +211,27 @@ export default function ResumeOptimizationPage() {
     setAtsLoading(true);
   
     try {
-      // 1. Generate PDF
-      const { pdfUrl: compiledPdfUrl } = await resumeApi.generatePdf(latexCode);
-      setPdfUrl(compiledPdfUrl);
-  
-      // 2. Extract text
-      const pdfjsLib = await import('pdfjs-dist');
-      (pdfjsLib as any).GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-  
-      const pdfDoc = await (pdfjsLib as any).getDocument(compiledPdfUrl).promise;
-  
-      let extractedText = '';
-  
-      for (let i = 1; i <= pdfDoc.numPages; i++) {
-        const page = await (pdfDoc as any).getPage(i);
-        const textContent = await page.getTextContent();
-  
-        const pageText = textContent.items
-          .map((it: { str: string }) => it.str)
-          .join(' ');
-  
-        extractedText += (extractedText ? '\n' : '') + pageText;
+      // Step 1: Verify LaTeX compiles properly
+      console.log('🔨 Verifying LaTeX compilation...');
+      try {
+        const { pdfUrl: compiledPdfUrl } = await resumeApi.generatePdf(latexCode);
+        setPdfUrl(compiledPdfUrl);
+        console.log('✅ LaTeX compiled successfully');
+      } catch (compilationError: unknown) {
+        const errorMsg = compilationError instanceof Error ? compilationError.message : 'LaTeX compilation failed';
+        console.error('❌ LaTeX compilation error:', errorMsg);
+        toast.error(`LaTeX compilation failed: ${errorMsg}. Please check your resume syntax.`);
+        setAtsLoading(false);
+        return;
       }
+
+      // Step 2: Analyze LaTeX content directly
+      console.log('📊 Analyzing ATS score directly from LaTeX content...');
   
-      // 3. LLM / API switch
+      // LLM / API switch
       if (process.env.NEXT_PUBLIC_ATS_LLM_BETA === 'true') {
         const baseline = await atsLLMApi.baseline({
-          resumeText: extractedText,
+          resumeText: latexCode,
           jobDescription,
           force: true,
         });
@@ -288,18 +282,39 @@ export default function ResumeOptimizationPage() {
         setAtsData(mapped);
       } else {
         const response = await resumeApi.checkATSScore(
-          extractedText,
+          latexCode,
           jobDescription
         );
         setAtsData(response);
       }
   
       setShowATSModal(true);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Failed to check ATS score';
-  
-      toast.error(errorMessage);
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to check ATS score';
+      let errorDetails = '';
+
+      // Handle axios error response
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const axiosError = err as { response?: { data?: Record<string, unknown> } };
+        const data = axiosError.response?.data;
+        
+        if (data && typeof data === 'object') {
+          errorMessage = (data.message as string) || errorMessage;
+          errorDetails = (data.error as string) || '';
+        }
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+
+      // Show detailed error message with actionable steps
+      const fullErrorMessage = errorDetails 
+        ? `${errorMessage}\n${errorDetails}` 
+        : errorMessage;
+      
+      toast.error(fullErrorMessage, {
+        autoClose: 6000,
+        style: { whiteSpace: 'pre-wrap' },
+      });
     } finally {
       setAtsLoading(false);
     }

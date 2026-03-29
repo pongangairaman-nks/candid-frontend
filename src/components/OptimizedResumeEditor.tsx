@@ -329,9 +329,32 @@ export const OptimizedResumeEditor = ({
           },
         ]);
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to optimize resume';
-      toast.error(errorMessage);
+    } catch (error: unknown) {
+      let errorMessage = 'Failed to optimize resume';
+      let errorDetails = '';
+
+      // Handle axios error response
+      if (typeof error === 'object' && error !== null && 'response' in error) {
+        const axiosError = error as { response?: { data?: Record<string, unknown> } };
+        const data = axiosError.response?.data;
+        
+        if (data && typeof data === 'object') {
+          errorMessage = (data.message as string) || errorMessage;
+          errorDetails = (data.error as string) || '';
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      // Show detailed error message with actionable steps
+      const fullErrorMessage = errorDetails 
+        ? `${errorMessage}\n${errorDetails}` 
+        : errorMessage;
+      
+      toast.error(fullErrorMessage, {
+        autoClose: 6000,
+        style: { whiteSpace: 'pre-wrap' },
+      });
       console.error('Optimization error:', error);
     } finally {
       setIsOptimizing(false);
