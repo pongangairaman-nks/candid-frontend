@@ -2,7 +2,7 @@
 
 import { FileText, AlertCircle, Save, Loader, CheckCircle, Info, Lightbulb, Copy, Check } from 'lucide-react';
 import { useResumeStore } from '@/store/resumeStore';
-import { resumeApi, llmConfigApi, atsLLMApi, type LlmUsageTotals, type LlmUsageEntry } from '@/services/api';
+import { resumeApi, llmConfigApi, atsLLMApi, resumeSectionsApi, type LlmUsageTotals, type LlmUsageEntry } from '@/services/api';
 import { LLMConfigSection } from '@/components/LLMConfigSection';
 import { MasterContentAccordion, type ContentSection } from '@/components/MasterContentAccordion';
 import { useState, useEffect, useRef, memo, useCallback } from 'react';
@@ -70,21 +70,39 @@ export default function ConfigurationPage() {
         }
         fetchAbortRef.current = new AbortController();
 
-        // Fetch master templates and config in parallel
+        // Fetch master templates, config, and sections in parallel
         // Note: LLMConfigSection handles llmConfig fetch, so we only fetch templates here
-        console.log('📦 [ConfigurationPage] Fetching master templates and config...');
-        const [masterTemplateRes, masterCoverLetterRes, llmConfigRes] = await Promise.all([
+        console.log('📦 [ConfigurationPage] Fetching master templates, config, and sections...');
+        const [masterTemplateRes, masterCoverLetterRes, llmConfigRes, sectionsRes] = await Promise.all([
           resumeApi.getMasterTemplate(),
           resumeApi.getMasterCoverLetterTemplate(),
           llmConfigApi.getConfig(),
+          resumeSectionsApi.getSections(),
         ]);
 
         console.log('✅ [ConfigurationPage] All data fetched successfully');
         setMasterDocument(masterTemplateRes.latexCode);
         setMasterCoverLetter(masterCoverLetterRes.latexCode);
         
-        // Prefill master content if it exists
-        if (llmConfigRes.masterContent) {
+        // Initialize master content sections from backend sections
+        if (sectionsRes.sections && sectionsRes.sections.length > 0) {
+          console.log('📋 [ConfigurationPage] Initializing sections from backend:', sectionsRes.sections.map((s) => s.name));
+          
+          // Create content sections from backend sections
+          const masterContentMap = typeof llmConfigRes.masterContent === 'object' && llmConfigRes.masterContent !== null
+            ? (llmConfigRes.masterContent as unknown as Record<string, string>)
+            : {};
+          
+          const contentSections: ContentSection[] = sectionsRes.sections.map((section, idx) => ({
+            id: `section-${idx}`,
+            title: section.name,
+            content: masterContentMap[section.name] || '',
+          }));
+          
+          setMasterContentSections(contentSections);
+        } else if (llmConfigRes.masterContent && Array.isArray(llmConfigRes.masterContent)) {
+          // Fallback to existing master content if no sections found
+          console.log('⚠️ [ConfigurationPage] No sections found, using existing master content');
           setMasterContentSections(llmConfigRes.masterContent);
         }
         
@@ -133,6 +151,33 @@ export default function ConfigurationPage() {
 
     try {
       await resumeApi.saveMasterTemplate(masterDocument);
+      
+      // After saving, fetch the updated sections from backend
+      console.log('📋 [ConfigurationPage] Fetching updated sections after resume save...');
+      const sectionsRes = await resumeSectionsApi.getSections();
+      
+      if (sectionsRes.sections && sectionsRes.sections.length > 0) {
+        console.log('✅ [ConfigurationPage] Updated sections from backend:', sectionsRes.sections.map((s) => s.name));
+        
+        // Get current master content to preserve any existing content
+        const masterContentMap = typeof masterContentSections === 'object' && masterContentSections !== null
+          ? masterContentSections.reduce((acc, section) => {
+              acc[section.title] = section.content;
+              return acc;
+            }, {} as Record<string, string>)
+          : {};
+        
+        // Create new content sections based on updated resume sections
+        const contentSections: ContentSection[] = sectionsRes.sections.map((section, idx) => ({
+          id: `section-${idx}`,
+          title: section.name,
+          content: masterContentMap[section.name] || '', // Keep existing content if available
+        }));
+        
+        setMasterContentSections(contentSections);
+        console.log('✅ [ConfigurationPage] Master content sections updated to match resume sections');
+      }
+      
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 3000);
     } catch (err) {
@@ -701,6 +746,7 @@ export default function ConfigurationPage() {
                 sections={masterContentSections}
                 onSectionsChange={setMasterContentSections}
                 maxCharacters={50000}
+                onNavigateToTemplate={() => setActiveTab('template')}
               />
             </div>
 

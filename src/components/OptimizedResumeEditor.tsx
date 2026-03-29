@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Send, Sparkles, Copy, Check, Download, TrendingUp, Zap, ChevronDown, ChevronUp, Eye, Wand2 } from 'lucide-react';
-import { llmConfigApi, resumeApi, type ATSScoreResponse } from '@/services/api';
+import { llmConfigApi, resumeApi, resumeSectionsApi, type ATSScoreResponse } from '@/services/api';
 import { toast } from 'react-toastify';
 
 interface Suggestion {
@@ -74,6 +74,7 @@ export const OptimizedResumeEditor = ({
   const [masterPrompt, setMasterPrompt] = useState('');
   const [selectedText, setSelectedText] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
+  const [sections, setSections] = useState<Array<{ name: string; order: number; isActive: boolean }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const latexRef = useRef<HTMLTextAreaElement>(null);
@@ -88,9 +89,9 @@ export const OptimizedResumeEditor = ({
     inputRef.current?.focus();
   }, []);
 
-  // Fetch LLM config on mount
+  // Fetch LLM config and sections on mount
   useEffect(() => {
-    const fetchLlmConfig = async () => {
+    const fetchConfigAndSections = async () => {
       try {
         const config = await llmConfigApi.getConfig();
         // API now returns camelCase keys directly
@@ -101,11 +102,18 @@ export const OptimizedResumeEditor = ({
           masterCoverLetter: (config as Record<string, string | undefined>).masterCoverLetter,
           masterProfile: (config as Record<string, string | undefined>).masterContent,
         });
+
+        // Fetch sections from backend
+        const sectionsData = await resumeSectionsApi.getSections();
+        if (sectionsData.sections && sectionsData.sections.length > 0) {
+          setSections(sectionsData.sections);
+          console.log('✅ Loaded sections from backend:', sectionsData.sections.map((s) => s.name));
+        }
       } catch (error) {
-        console.error('Error fetching LLM config:', error);
+        console.error('Error fetching config or sections:', error);
       }
     };
-    fetchLlmConfig();
+    fetchConfigAndSections();
   }, []);
 
   // Initialize master prompt when llmConfig or activeTab changes
@@ -132,40 +140,118 @@ export const OptimizedResumeEditor = ({
     setInputValue('');
     setIsLoading(true);
 
-    // Simulate AI response with suggestions
-    setTimeout(() => {
-      const assistantMessage: Message = {
+    try {
+      // Prepare payload based on mode (global vs focused)
+      const { primarySection, allSections, confidence } = selectedText 
+        ? detectSectionsInSelection(selectedText)
+        : { primarySection: '', allSections: [], confidence: 0 };
+
+      const payload = selectedText
+        ? {
+            mode: 'focused',
+            resume: latexCode,
+            jobDescription,
+            prompt: inputValue,
+            masterProfile: llmConfig?.masterProfile,
+            selectedContent: selectedText,
+            primarySection,
+            allSections,
+            confidence,
+            quality: 'fast',
+          }
+        : {
+            mode: 'global',
+            resume: latexCode,
+            jobDescription,
+            prompt: inputValue,
+            masterProfile: llmConfig?.masterProfile,
+            quality: 'fast',
+          };
+
+      // Call the optimize API
+      const response = await resumeApi.optimizeResume(payload);
+
+      if (response.data?.optimizedLatex) {
+        const optimizedContent = response.data.optimizedLatex;
+
+        // Handle replacement based on mode
+        if (selectedText && selectedText.trim()) {
+          // FOCUSED MODE: Replace only the selected text
+          let updatedLatex = latexCode;
+          let replacementSuccessful = false;
+
+          // Try 1: Exact match of selected text
+          if (latexCode.includes(selectedText)) {
+            updatedLatex = latexCode.replace(selectedText, optimizedContent);
+            replacementSuccessful = true;
+          }
+          // Try 2: Fuzzy match if exact fails
+          else {
+            const selectedWords = selectedText.split(/\s+/).filter((w) => w.length > 0);
+            const latexWords = latexCode.split(/\s+/);
+            let startIdx = -1;
+            let endIdx = -1;
+
+            for (let i = 0; i <= latexWords.length - selectedWords.length; i++) {
+              let matchCount = 0;
+              for (let j = 0; j < selectedWords.length; j++) {
+                if (latexWords[i + j].includes(selectedWords[j])) {
+                  matchCount++;
+                }
+              }
+              if (matchCount >= Math.ceil(selectedWords.length * 0.7)) {
+                startIdx = i;
+                endIdx = i + selectedWords.length;
+                break;
+              }
+            }
+
+            if (startIdx !== -1 && endIdx !== -1) {
+              const originalText = latexWords.slice(startIdx, endIdx).join(' ');
+              updatedLatex = latexCode.replace(originalText, optimizedContent);
+              replacementSuccessful = true;
+            }
+          }
+
+          if (replacementSuccessful) {
+            onLatexChange(updatedLatex);
+            toast.success(`✓ ${primarySection} section optimized and applied`);
+            clearSelection();
+          } else {
+            toast.error('Could not apply optimization. Content may have changed.');
+          }
+        } else {
+          // GLOBAL MODE: Replace entire resume
+          onLatexChange(optimizedContent);
+          toast.success('Resume optimized successfully!');
+        }
+
+        // Add assistant message
+        const assistantMessage: Message = {
+          id: `msg-${Date.now() + 1}`,
+          type: 'assistant',
+          content: selectedText
+            ? `✓ Optimized the ${primarySection} section. The improved content has been applied to your resume.`
+            : `✓ Resume optimized successfully! All sections have been enhanced to better match the job description.`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to optimize resume';
+      toast.error(errorMessage);
+      console.error('Optimization error:', error);
+
+      const errorMessage_display: Message = {
         id: `msg-${Date.now() + 1}`,
         type: 'assistant',
-        content: selectedText 
-          ? `I've analyzed your request for the ${selectedSection} section: "${inputValue}". I found improvements tailored to this section. Check the Suggestions tab to apply them.`
-          : `I've analyzed your request: "${inputValue}". I found 2 improvements that match the job description. Check the Suggestions tab to apply them.`,
+        content: `❌ Error: ${errorMessage}. Please try again.`,
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, errorMessage_display]);
+    } finally {
       setIsLoading(false);
-
-      // Add sample suggestions
-      setSuggestions((prev: Suggestion[]) => [
-        ...prev,
-        {
-          id: `sug-${Date.now()}`,
-          section: selectedSection || 'Experience',
-          original: 'Worked on frontend development',
-          improved: 'Led frontend development initiatives using React and TypeScript, improving performance by 40%',
-          reason: 'Adds quantifiable impact and specific technologies mentioned in JD',
-          applied: false,
-        },
-        {
-          id: `sug-${Date.now() + 1}`,
-          section: selectedSection || 'Skills',
-          original: 'JavaScript, React, CSS',
-          improved: 'JavaScript, React, TypeScript, CSS, Redux, Next.js, Tailwind CSS',
-          reason: 'Includes all technologies from job description',
-          applied: false,
-        },
-      ]);
-    }, 800);
+    }
   };
 
   const handleApplySuggestion = (suggestionId: string) => {
@@ -283,6 +369,42 @@ export const OptimizedResumeEditor = ({
     });
   };
 
+  const detectSectionsInSelection = (selectedText: string): { primarySection: string; allSections: string[]; confidence: number } => {
+    // Use dynamic sections from backend if available, otherwise fallback to defaults
+    const availableSections = sections.length > 0 
+      ? sections.map((s) => s.name)
+      : ['Profile', 'Experience', 'Skills', 'Education', 'Projects', 'Certifications'];
+
+    const detectedSections: { name: string; confidence: number }[] = [];
+
+    availableSections.forEach((sectionName) => {
+      // Create regex pattern for section header
+      const headerRegex = new RegExp(`\\\\section\\*?\\{${sectionName}\\}`, 'i');
+      // Also check for section name mention
+      const nameRegex = new RegExp(`\\b${sectionName}\\b`, 'i');
+
+      if (headerRegex.test(selectedText)) {
+        // Exact section header match = 100% confidence
+        detectedSections.push({ name: sectionName, confidence: 100 });
+      } else if (nameRegex.test(selectedText)) {
+        // Section name mention = calculate confidence based on word count
+        const wordCount = selectedText.split(/\s+/).length;
+        const matchCount = (selectedText.match(nameRegex) || []).length;
+        const confidence = Math.min((matchCount / wordCount) * 100, 100);
+        detectedSections.push({ name: sectionName, confidence });
+      }
+    });
+
+    // Sort by confidence
+    detectedSections.sort((a, b) => b.confidence - a.confidence);
+
+    const primarySection = detectedSections[0]?.name || 'Selected Text';
+    const allSections = detectedSections.map((s) => s.name);
+    const confidence = detectedSections[0]?.confidence || 0;
+
+    return { primarySection, allSections, confidence };
+  };
+
   const handleLatexSelection = () => {
     if (!latexRef.current) return;
     
@@ -292,10 +414,8 @@ export const OptimizedResumeEditor = ({
     if (selectedText.trim()) {
       setSelectedText(selectedText);
       
-      // Try to extract section name from selected text
-      const sectionMatch = selectedText.match(/\\section\{([^}]+)\}|\\subsection\{([^}]+)\}|\\textbf\{([^}]+)\}/);
-      const section = sectionMatch ? (sectionMatch[1] || sectionMatch[2] || sectionMatch[3]) : 'Selected Text';
-      setSelectedSection(section);
+      const { primarySection } = detectSectionsInSelection(selectedText);
+      setSelectedSection(primarySection);
       
       // Auto-switch to Chat tab if currently on Suggestions
       if (activeRightTab === 'suggestions') {
@@ -461,7 +581,10 @@ export const OptimizedResumeEditor = ({
           {/* Tab Navigation */}
           <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center space-x-2">
             <button
-              onClick={() => setActiveRightTab('suggestions')}
+              onClick={() => {
+                setSelectedText('');
+                setActiveRightTab('suggestions')}
+              }
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 activeRightTab === 'suggestions'
                   ? 'bg-white text-blue-600 shadow-sm'

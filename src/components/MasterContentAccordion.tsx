@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, Plus, Trash2, AlertCircle, ArrowRight } from 'lucide-react';
 
 export interface ContentSection {
   id: string;
@@ -13,27 +13,17 @@ interface MasterContentAccordionProps {
   sections: ContentSection[];
   onSectionsChange: (sections: ContentSection[]) => void;
   maxCharacters?: number;
+  onNavigateToTemplate?: () => void;
 }
-
-const DEFAULT_SECTIONS = [
-  { id: 'profile', title: 'Profile/Summary', content: '' },
-  { id: 'skills', title: 'Skills', content: '' },
-  { id: 'experience', title: 'Experience', content: '' },
-  { id: 'projects', title: 'Projects', content: '' },
-  { id: 'education', title: 'Education', content: '' },
-  { id: 'certifications', title: 'Certifications', content: '' },
-];
 
 export const MasterContentAccordion = ({
   sections,
   onSectionsChange,
   maxCharacters = 50000,
+  onNavigateToTemplate,
 }: MasterContentAccordionProps) => {
-  // const [expandedId, setExpandedId] = useState<string | null>(sections.length > 0 ? sections[0].id : null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [localSections, setLocalSections] = useState<ContentSection[]>(
-    sections.length > 0 ? sections : DEFAULT_SECTIONS
-  );
+  const [localSections, setLocalSections] = useState<ContentSection[]>(sections);
 
   const totalChars = localSections.reduce((sum, sec) => sum + (sec.content?.length || 0), 0);
   const isAtLimit = totalChars >= maxCharacters;
@@ -80,6 +70,26 @@ export const MasterContentAccordion = ({
     }
     onSectionsChange(updated);
   };
+
+  // Show empty state if no sections
+  if (localSections.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-dashed border-blue-200">
+        <AlertCircle className="w-12 h-12 text-blue-500 mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Master Resume Found</h3>
+        <p className="text-sm text-gray-600 text-center mb-6 max-w-sm">
+          Please update your master resume first to configure the master content. The sections will be automatically detected from your resume.
+        </p>
+        <button
+          onClick={onNavigateToTemplate}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+        >
+          Go to Master Template
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -171,13 +181,13 @@ export const MasterContentAccordion = ({
       </div>
 
       {/* Add Section Button */}
-      <button
+      {/* <button
         onClick={handleAddSection}
         className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-colors font-medium"
       >
         <Plus className="w-5 h-5" />
         Add Custom Section
-      </button>
+      </button> */}
       
     </div>
   );

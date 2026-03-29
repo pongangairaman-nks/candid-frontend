@@ -717,6 +717,18 @@ export const llmConfigApi = {
   },
 };
 
+export const resumeSectionsApi = {
+  getSections: async (): Promise<{ sections: Array<{ name: string; order: number; isActive: boolean }> }> => {
+    try {
+      const response = await apiClient.get('/resume/sections');
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching sections:', error);
+      throw error;
+    }
+  },
+};
+
 export const jobApplicationApi = {
   getAll: async (): Promise<JobApplication[]> => {
     try {
