@@ -72,8 +72,11 @@ export const OptimizedResumeEditor = ({
     masterProfile?: string;
   } | null>(null);
   const [masterPrompt, setMasterPrompt] = useState('');
+  const [selectedText, setSelectedText] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const latexRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -121,7 +124,7 @@ export const OptimizedResumeEditor = ({
     const userMessage: Message = {
       id: `msg-${Date.now()}`,
       type: 'user',
-      content: inputValue,
+      content: selectedText ? `[${selectedSection}] ${inputValue}` : inputValue,
       timestamp: new Date(),
     };
 
@@ -134,7 +137,9 @@ export const OptimizedResumeEditor = ({
       const assistantMessage: Message = {
         id: `msg-${Date.now() + 1}`,
         type: 'assistant',
-        content: `I've analyzed your request: "${inputValue}". I found 2 improvements that match the job description. Check the Suggestions tab to apply them.`,
+        content: selectedText 
+          ? `I've analyzed your request for the ${selectedSection} section: "${inputValue}". I found improvements tailored to this section. Check the Suggestions tab to apply them.`
+          : `I've analyzed your request: "${inputValue}". I found 2 improvements that match the job description. Check the Suggestions tab to apply them.`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, assistantMessage]);
@@ -145,7 +150,7 @@ export const OptimizedResumeEditor = ({
         ...prev,
         {
           id: `sug-${Date.now()}`,
-          section: 'Experience',
+          section: selectedSection || 'Experience',
           original: 'Worked on frontend development',
           improved: 'Led frontend development initiatives using React and TypeScript, improving performance by 40%',
           reason: 'Adds quantifiable impact and specific technologies mentioned in JD',
@@ -153,7 +158,7 @@ export const OptimizedResumeEditor = ({
         },
         {
           id: `sug-${Date.now() + 1}`,
-          section: 'Skills',
+          section: selectedSection || 'Skills',
           original: 'JavaScript, React, CSS',
           improved: 'JavaScript, React, TypeScript, CSS, Redux, Next.js, Tailwind CSS',
           reason: 'Includes all technologies from job description',
@@ -276,6 +281,32 @@ export const OptimizedResumeEditor = ({
       }
       return [...prev, id]; // open only this
     });
+  };
+
+  const handleLatexSelection = () => {
+    if (!latexRef.current) return;
+    
+    const textarea = latexRef.current;
+    const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+    
+    if (selectedText.trim()) {
+      setSelectedText(selectedText);
+      
+      // Try to extract section name from selected text
+      const sectionMatch = selectedText.match(/\\section\{([^}]+)\}|\\subsection\{([^}]+)\}|\\textbf\{([^}]+)\}/);
+      const section = sectionMatch ? (sectionMatch[1] || sectionMatch[2] || sectionMatch[3]) : 'Selected Text';
+      setSelectedSection(section);
+      
+      // Auto-switch to Chat tab if currently on Suggestions
+      if (activeRightTab === 'suggestions') {
+        setActiveRightTab('chat');
+      }
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedText('');
+    setSelectedSection('');
   };
 
   const appliedCount = suggestions?.filter((s: any) => s.applied).length;
@@ -410,8 +441,11 @@ export const OptimizedResumeEditor = ({
 
           {/* Code Display */}
           <textarea
+            ref={latexRef}
             value={latexCode}
             onChange={(e) => onLatexChange(e.target.value)}
+            onMouseUp={handleLatexSelection}
+            onKeyUp={handleLatexSelection}
             placeholder="LaTeX code will appear here..."
             className="flex-1 px-4 py-4 border-none focus:outline-none resize-none font-mono text-xs text-gray-700 bg-gray-50 placeholder:text-gray-400"
           />
@@ -616,6 +650,29 @@ export const OptimizedResumeEditor = ({
 
             {/* Input Area */}
             <div className="border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3">
+
+              {/* Selected Text Display */}
+              {selectedText && (
+                <div className="mb-3 p-3 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 rounded-lg">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">
+                        Optimizing: {selectedSection}
+                      </p>
+                      <p className="text-xs text-gray-700 dark:text-slate-300 line-clamp-2">
+                        {selectedText}
+                      </p>
+                    </div>
+                    <button
+                      onClick={clearSelection}
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 transition"
+                      title="Clear selection"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-end gap-2">
 
