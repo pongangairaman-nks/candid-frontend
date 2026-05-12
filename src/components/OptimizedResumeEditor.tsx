@@ -474,18 +474,28 @@ export const OptimizedResumeEditor = ({
           console.log(`✅ Optimization complete! ATS Score: ${atsScore}/100`);
         }
         
-        const scoreMessage = atsScore >= 85 
-          ? '✓ Excellent! Your resume achieved 85+ ATS score.' 
-          : `✓ Resume optimized! Current ATS score: ${atsScore}/100`;
+        // Build message based on whether target was reached
+        let scoreMessage = '';
         
-        toast.success(scoreMessage);
+        if (atsScore >= 85) {
+          scoreMessage = `✓ Excellent! Your resume achieved 85+ ATS score (${atsScore}/100). Iterations: ${iterations}`;
+          toast.success(scoreMessage);
+        } else if (response.data?.max_iterations_reached) {
+          // Max iterations reached but didn't reach 85+
+          const gap = 85 - atsScore;
+          scoreMessage = `⚠️ Optimization completed after ${iterations} iterations. Current score: ${atsScore}/100 (${gap} points below target).\n\n📋 Recommendation: ${response.data.recommendation}`;
+          toast.warning(`Resume optimized to ${atsScore}/100. ${gap} points below target.`);
+        } else {
+          scoreMessage = `✓ Resume optimized! Current ATS score: ${atsScore}/100. Iterations: ${iterations}`;
+          toast.success(scoreMessage);
+        }
         
         setMessages((prev) => [
           ...prev,
           {
             id: `msg-${Date.now()}`,
             type: 'system',
-            content: `${scoreMessage} Iterations: ${iterations}`,
+            content: scoreMessage,
             timestamp: new Date(),
           },
         ]);

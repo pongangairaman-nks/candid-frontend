@@ -56,6 +56,10 @@ export interface OptimizeResumeResponse {
     iterations?: number;
     targetReached?: boolean;
     latencyMs?: number;
+    max_iterations_reached?: boolean;
+    scoreGap?: number;
+    improvementTrend?: number;
+    recommendation?: string;
   };
 }
 
