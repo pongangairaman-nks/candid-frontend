@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Sparkles, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { useResumeStore } from '@/store/resumeStore';
+import { useResumeStore, useResumeStoreV2 } from '@/store/resumeStore';
 import { resumeApi, jobApplicationApi, llmConfigApi, atsLLMApi, type ATSScoreResponse, ATSSuggestion } from '@/services/api';
+import { compileLatexTemplate } from '@/utils/latexCompiler';
 import { PreviewModal } from '@/components/PreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
 import { OptimizedResumeEditor } from '@/components/OptimizedResumeEditor';
@@ -36,6 +37,12 @@ export default function ResumeOptimizationPage() {
     setJobDescription,
     setLatexCode,
   } = useResumeStore();
+
+  const {
+    setExtractedContentJson,
+    setCreatedLatexTemplate,
+    compileAndSetLatex,
+  } = useResumeStoreV2();
 
   const [activeTab, setActiveTab] = useState<TabType>('resume');
   const [resumeLatexCode, setResumeLatexCode] = useState('');
@@ -140,10 +147,22 @@ export default function ResumeOptimizationPage() {
           resumeApi.getMasterCoverLetterTemplate(),
         ]);
 
-        if (resumeTemplate.latexCode) {
-          setMasterDocument(resumeTemplate.latexCode);
-          setResumeLatexCode(resumeTemplate.latexCode);
-          setLatexCode(resumeTemplate.latexCode);
+        // Set V2 store with template and extracted JSON
+        if (resumeTemplate.handlebarsTemplate && resumeTemplate.extractedJson) {
+          setCreatedLatexTemplate(resumeTemplate.handlebarsTemplate);
+          setExtractedContentJson(resumeTemplate.extractedJson);
+          // Compile the template to get final LaTeX
+          compileAndSetLatex();
+          
+          // Use only compiled LaTeX (not original) to ensure proper template + JSON combination
+          // This allows for seamless optimization where we can update JSON and recompile
+          const compiledLatex = compileLatexTemplate(
+            resumeTemplate.handlebarsTemplate,
+            resumeTemplate.extractedJson
+          );
+          setMasterDocument(compiledLatex);
+          setResumeLatexCode(compiledLatex);
+          setLatexCode(compiledLatex);
         }
 
         if (coverLetterTemplate.latexCode) {
@@ -170,7 +189,7 @@ export default function ResumeOptimizationPage() {
       fetchInitiatedRef.current = true;
       fetchData();
     }
-  }, [jobId, setMasterDocument, setJobDescription, setLatexCode]);
+  }, [jobId, setMasterDocument, setJobDescription, setLatexCode, setCreatedLatexTemplate, setExtractedContentJson, compileAndSetLatex]);
 
   // Handle tab switching
   useEffect(() => {

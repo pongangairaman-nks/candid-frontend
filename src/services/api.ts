@@ -271,12 +271,32 @@ export const resumeApi = {
     }
   },
 
-  getMasterTemplate: async (): Promise<{ latexCode: string }> => {
+  getMasterTemplate: async (): Promise<{ 
+    latexCode: string; 
+    originalLatex?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    extractedJson?: any;
+    handlebarsTemplate?: string;
+  }> => {
     try {
-      const response = await apiClient.get<{ status: string; data: { latexCode: string } }>(
+      const response = await apiClient.get<{ 
+        status: string; 
+        data: { 
+          originalLatex?: string;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          extractedJson?: any;
+          handlebarsTemplate?: string;
+          latexCode?: string;
+        } 
+      }>(
         '/resume/master-template'
       );
-      return { latexCode: response.data.data?.latexCode || '' };
+      return { 
+        latexCode: response.data.data?.latexCode || response.data.data?.originalLatex || '',
+        originalLatex: response.data.data?.originalLatex,
+        extractedJson: response.data.data?.extractedJson,
+        handlebarsTemplate: response.data.data?.handlebarsTemplate,
+      };
     } catch (error: unknown) {
       const axiosError = error as { response?: { status: number } };
       if (axiosError.response?.status === 404) {

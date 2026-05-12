@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { compileLatexTemplate } from '@/utils/latexCompiler';
 
 // V1 State (Original)
 export interface ResumeState {
@@ -102,6 +103,7 @@ export interface ResumeStateV2 {
   setPdfUrl: (url: string | null) => void;
   setIsLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  compileAndSetLatex: () => void;
   resetV2: () => void;
 }
 
@@ -169,6 +171,22 @@ export const useResumeStoreV2 = create<ResumeStateV2>((set) => ({
   setPdfUrl: (url) => set({ pdfUrl: url }),
   setIsLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
+  compileAndSetLatex: () => set((state) => {
+    if (!state.createdLatexTemplate || !state.extractedContentJson) {
+      return { error: 'Template or extracted content missing' };
+    }
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const compiledLatex = compileLatexTemplate(
+        state.createdLatexTemplate,
+        state.extractedContentJson as any
+      );
+      return { finalLatex: compiledLatex, error: null };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to compile LaTeX';
+      return { error: errorMessage };
+    }
+  }),
   resetV2: () => set({
     wholeMasterTemplate: '',
     extractedContentJson: null,
