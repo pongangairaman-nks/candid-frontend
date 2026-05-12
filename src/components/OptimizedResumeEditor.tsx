@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Sparkles, Copy, Check, Download, TrendingUp, Zap, ChevronDown, ChevronUp, Eye, Wand2 } from 'lucide-react';
 import { llmConfigApi, resumeApi, resumeSectionsApi, type ATSScoreResponse } from '@/services/api';
+import { useResumeStoreV2 } from '@/store/resumeStore';
+import { compileLatexTemplate } from '@/utils/latexCompiler';
 import { toast } from 'react-toastify';
 
 interface Suggestion {
@@ -389,26 +391,58 @@ export const OptimizedResumeEditor = ({
 
     setIsOptimizing(true);
     try {
+      // Get extracted JSON from V2 store
+      const { extractedContentJson } = useResumeStoreV2.getState();
+      
+      if (!extractedContentJson) {
+        toast.error('Resume data not loaded. Please refresh the page.');
+        setIsOptimizing(false);
+        return;
+      }
+
       const response = await resumeApi.optimizeResume({
         jobDescription,
         prompt: masterPrompt,
-        resume: latexCode,
+        extractedContentJson,
         masterProfile: llmConfig?.masterProfile,
       });
 
-      if (response.data?.optimizedLatex) {
-        onLatexChange(response.data.optimizedLatex);
-        toast.success('Resume optimized successfully!');
+      if (response.data?.optimizedJson) {
+        // Get the Handlebars template from V2 store
+        const { createdLatexTemplate } = useResumeStoreV2.getState();
+        
+        if (createdLatexTemplate) {
+          // Compile optimized JSON with template to get final LaTeX
+          const compiledLatex = compileLatexTemplate(createdLatexTemplate, response.data.optimizedJson);
+          onLatexChange(compiledLatex);
+          
+          // Update V2 store with optimized JSON (persists for this job ID)
+          useResumeStoreV2.setState({ extractedContentJson: response.data.optimizedJson });
+          
+          console.log(`✅ Optimization complete! ATS Score: ${response.data.atsScore}/100`);
+        }
+        
+        const atsScore = response.data.atsScore || 0;
+        const iterations = response.data.iterations || 1;
+        const scoreMessage = atsScore >= 85 
+          ? '✓ Excellent! Your resume achieved 85+ ATS score.' 
+          : `✓ Resume optimized! Current ATS score: ${atsScore}/100`;
+        
+        toast.success(scoreMessage);
         
         setMessages((prev) => [
           ...prev,
           {
             id: `msg-${Date.now()}`,
             type: 'system',
-            content: '✓ Resume optimized successfully! Your resume has been tailored to match the job description.',
+            content: `${scoreMessage} Iterations: ${iterations}`,
             timestamp: new Date(),
           },
         ]);
+      } else if (response.data?.optimizedLatex) {
+        // Fallback for old API response format
+        onLatexChange(response.data.optimizedLatex);
+        toast.success('Resume optimized successfully!');
       }
     } catch (error: unknown) {
       let errorMessage = 'Failed to optimize resume';
@@ -683,8 +717,19 @@ export const OptimizedResumeEditor = ({
           </div>
         </div>
 
-        {/* Right Column: Suggestions & Chat */}
-        <div className="flex-[0.3] flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden">
+        {/* Right Column: Suggestions & Chat - Coming Soon */}
+        <div className="flex-[0.3] flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden relative">
+          {/* Coming Soon Overlay */}
+          <div className="absolute inset-0 bg-black/10 backdrop-blur-xs z-50 flex items-center justify-center rounded-xl">
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white/90 shadow-sm mb-3">
+                <Sparkles className="w-7 h-7 text-blue-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">Coming Soon</h3>
+              <p className="text-xs text-gray-600">AI features available soon</p>
+            </div>
+          </div>
+
           {/* Tab Navigation */}
           <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center space-x-2">
             <button
@@ -722,9 +767,9 @@ export const OptimizedResumeEditor = ({
               {suggestions?.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-center">
                   <div>
-                    <Zap className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    {/* <Zap className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                     <p className="text-sm text-gray-500">No suggestions yet</p>
-                    <p className="text-xs text-gray-400 mt-1">Chat to get AI-powered improvements</p>
+                    <p className="text-xs text-gray-400 mt-1">Chat to get AI-powered improvements</p> */}
                   </div>
                 </div>
               ) : (

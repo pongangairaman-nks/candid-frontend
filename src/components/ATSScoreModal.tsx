@@ -107,6 +107,8 @@ export const ATSScoreModal = ({
   lastDelta,
   lastSectionKey,
 }: ATSScoreModalProps) => {
+  // const tabArray = ["overview", "breakdown", "suggestions", "analysis"];
+  const tabArray = ["overview", "analysis"];
   const [activeTab, setActiveTab] = useState<
     "overview" | "breakdown" | "suggestions" | "analysis"
   >("overview");
@@ -243,7 +245,7 @@ export const ATSScoreModal = ({
 
             {/* Tabs */}
             <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700 px-6">
-              {["overview", "breakdown", "suggestions", "analysis"].map(
+              {tabArray.map(
                 (tab) => (
                   <button
                     key={tab}

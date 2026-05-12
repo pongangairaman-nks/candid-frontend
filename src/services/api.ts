@@ -38,7 +38,9 @@ apiClient.interceptors.response.use(
 export interface OptimizeResumeRequest {
   jobDescription: string;
   prompt?: string;
-  resume: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  extractedContentJson?: any;
+  resume?: string;
   masterProfile?: string;
 }
 
@@ -46,7 +48,13 @@ export interface OptimizeResumeResponse {
   status: string;
   message: string;
   data: {
-    optimizedLatex: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    optimizedJson?: any;
+    optimizedLatex?: string;
+    atsScore?: number;
+    iterations?: number;
+    targetReached?: boolean;
+    latencyMs?: number;
   };
 }
 
@@ -558,6 +566,48 @@ export const authApi = {
   logout: () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+  },
+};
+
+export interface ATSAnalysisV2Response {
+  ats_score: number;
+  analysis: {
+    overall_match: string;
+    strengths: string[];
+    weaknesses: string[];
+  };
+  weak_sections: Array<{
+    section_key: string;
+    section_name: string;
+    match_percentage: number;
+    priority: 'critical' | 'high' | 'medium' | 'low';
+    reason: string;
+    missing_keywords: string[];
+    suggestion: string;
+  }>;
+  missing_keywords: string[];
+  optimization_priority: string[];
+}
+
+export const resumeV2Api = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  analyze: async (jobDescription: string, extractedContentJson: any, userPrompt?: string): Promise<ATSAnalysisV2Response> => {
+    try {
+      const response = await apiClient.post<{ status: string; data: ATSAnalysisV2Response }>(
+        '/v2/resume/analyze',
+        { jobDescription, extractedContentJson, userPrompt }
+      );
+
+      if (response.data?.status !== 'success') {
+        throw new Error('Failed to analyze resume');
+      }
+
+      return response.data.data;
+    } catch (error) {
+      const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
+      const errorMessage = axiosError?.response?.data?.message || axiosError?.message || 'Failed to analyze resume';
+      throw new Error(errorMessage);
+    }
   },
 };
 

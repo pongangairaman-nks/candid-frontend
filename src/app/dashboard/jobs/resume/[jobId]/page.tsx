@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Sparkles, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useResumeStore, useResumeStoreV2 } from '@/store/resumeStore';
-import { resumeApi, jobApplicationApi, llmConfigApi, atsLLMApi, type ATSScoreResponse, ATSSuggestion } from '@/services/api';
+import { resumeApi, jobApplicationApi, llmConfigApi, resumeV2Api, type ATSScoreResponse } from '@/services/api';
 import { compileLatexTemplate } from '@/utils/latexCompiler';
 import { PreviewModal } from '@/components/PreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
@@ -225,88 +225,57 @@ export default function ResumeOptimizationPage() {
       return;
     }
   
-    if (atsLoading) return; // ✅ prevent double clicks
+    if (atsLoading) return;
   
     setAtsLoading(true);
   
     try {
-      // Step 1: Verify LaTeX compiles properly
-      console.log('🔨 Verifying LaTeX compilation...');
-      try {
-        const { pdfUrl: compiledPdfUrl } = await resumeApi.generatePdf(latexCode);
-        setPdfUrl(compiledPdfUrl);
-        console.log('✅ LaTeX compiled successfully');
-      } catch (compilationError: unknown) {
-        const errorMsg = compilationError instanceof Error ? compilationError.message : 'LaTeX compilation failed';
-        console.error('❌ LaTeX compilation error:', errorMsg);
-        toast.error(`LaTeX compilation failed: ${errorMsg}. Please check your resume syntax.`);
+      // Get extracted JSON from V2 store
+      const { extractedContentJson } = useResumeStoreV2.getState();
+      
+      if (!extractedContentJson) {
+        toast.error('Resume data not loaded. Please refresh the page.');
         setAtsLoading(false);
         return;
       }
 
-      // Step 2: Analyze LaTeX content directly
-      console.log('📊 Analyzing ATS score directly from LaTeX content...');
-  
-      // LLM / API switch
-      if (process.env.NEXT_PUBLIC_ATS_LLM_BETA === 'true') {
-        const baseline = await atsLLMApi.baseline({
-          resumeText: latexCode,
-          jobDescription,
-          force: true,
-        });
-  
-        const score = baseline.overallScore || 0;
-  
-        const mapped: ATSScoreResponse = {
-          score,
-          status: score >= 70 ? 'pass' : score >= 50 ? 'review' : 'fail',
-          message:
-            score >= 85
-              ? 'Excellent! Your resume is highly optimized.'
-              : score >= 70
-              ? 'Good! Some improvements can boost your score.'
-              : 'Needs improvement to pass ATS filters.',
-  
-          // 🔥 Keep minimal but useful
-          overview: baseline.summary || '',
-  
-          score_breakdown: baseline.scoreBreakdown || {
-            keyword_match: 0,
-            experience_match: 0,
-            formatting: 0,
-            impact: 0,
-            overall: score,
-          },
-  
-          primary_keywords: baseline.keywords || [],
-          secondary_keywords: [],
-          matching_skills: baseline.matchedSkills || [],
-          missing_skills: baseline.keywordGaps || [],
-  
-          role_focus: baseline.role_focus || baseline.roleFocus || '',
-          seniority_level: baseline.seniority_level || baseline.seniority || '',
-  
-          section_analysis: (baseline.section_analysis || baseline.sectionFeedback || []).map((item: any) => ({
-            section: item.section,
-            feedback: item.feedback,
-          })),
-          improvement_suggestions: baseline.improvement_suggestions || [],
+      console.log('📊 Analyzing resume against job description...');
+      const analysis = await resumeV2Api.analyze(jobDescription, extractedContentJson);
 
-          ats_tips: baseline.ats_tips || baseline.keywordGaps || [],
-          experience_gaps: baseline.experience_gaps && Array.isArray(baseline.experience_gaps) && baseline.experience_gaps.length > 0 && typeof baseline.experience_gaps[0] === 'object' 
-            ? baseline.experience_gaps as { issue: string; impact: string; }[]
-            : [],
-        };
+      // Map V2 response to ATSScoreResponse format
+      const mapped: ATSScoreResponse = {
+        score: analysis.ats_score,
+        status: analysis.ats_score >= 70 ? 'pass' : analysis.ats_score >= 50 ? 'review' : 'fail',
+        message:
+          analysis.ats_score >= 85
+            ? 'Excellent! Your resume is highly optimized.'
+            : analysis.ats_score >= 70
+            ? 'Good! Some improvements can boost your score.'
+            : 'Needs improvement to pass ATS filters.',
+        overview: analysis.analysis.overall_match,
+        score_breakdown: {
+          keyword_match: 0,
+          experience_match: 0,
+          formatting: 0,
+          impact: 0,
+          overall: analysis.ats_score,
+        },
+        primary_keywords: analysis.missing_keywords,
+        secondary_keywords: [],
+        matching_skills: [],
+        missing_skills: analysis.missing_keywords,
+        role_focus: '',
+        seniority_level: '',
+        section_analysis: analysis.weak_sections.map(section => ({
+          section: section.section_name,
+          feedback: section.suggestion,
+        })),
+        improvement_suggestions: [],
+        ats_tips: analysis.optimization_priority,
+        experience_gaps: [],
+      };
   
-        setAtsData(mapped);
-      } else {
-        const response = await resumeApi.checkATSScore(
-          latexCode,
-          jobDescription
-        );
-        setAtsData(response);
-      }
-  
+      setAtsData(mapped);
       setShowATSModal(true);
     } catch (err: unknown) {
       let errorMessage = 'Failed to check ATS score';
