@@ -40,6 +40,7 @@ export interface OptimizeResumeRequest {
   prompt?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   extractedContentJson?: any;
+  currentAtsScore?: number;
   resume?: string;
   masterProfile?: string;
 }

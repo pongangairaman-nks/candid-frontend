@@ -391,8 +391,8 @@ export const OptimizedResumeEditor = ({
 
     setIsOptimizing(true);
     try {
-      // Get extracted JSON from V2 store
-      const { extractedContentJson } = useResumeStoreV2.getState();
+      // Get extracted JSON and current ATS score from V2 store
+      const { extractedContentJson, currentAtsScore } = useResumeStoreV2.getState();
       
       if (!extractedContentJson) {
         toast.error('Resume data not loaded. Please refresh the page.');
@@ -400,14 +400,66 @@ export const OptimizedResumeEditor = ({
         return;
       }
 
+      // If ATS score is available, validate it in frontend
+      if (currentAtsScore !== null && currentAtsScore !== undefined) {
+        if (currentAtsScore < 50) {
+          toast.error('Your resume score is below 50. Please update your resume with relevant skills and experience to achieve a score of at least 50 to optimize.');
+          setIsOptimizing(false);
+          return;
+        }
+
+        if (currentAtsScore >= 85) {
+          toast.success(`Your resume is already optimized! Current score: ${currentAtsScore}/100`);
+          setIsOptimizing(false);
+          return;
+        }
+      }
+
+      // Send optimization request with or without ATS score
+      // Backend will handle ATS analysis if score is not provided
       const response = await resumeApi.optimizeResume({
         jobDescription,
         prompt: masterPrompt,
         extractedContentJson,
+        currentAtsScore: currentAtsScore || undefined,
         masterProfile: llmConfig?.masterProfile,
       });
 
-      if (response.data?.optimizedJson) {
+      // Handle response from backend
+      const atsScore = response.data.atsScore || 0;
+      const iterations = response.data.iterations || 0;
+      
+      // Save ATS score to store for future reference
+      useResumeStoreV2.setState({ currentAtsScore: atsScore });
+      
+      // Check if resume is already optimized (score >= 85)
+      if (atsScore >= 85 && !response.data?.optimizedJson) {
+        toast.success(`Your resume is already optimized! Current score: ${atsScore}/100`);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}`,
+            type: 'system',
+            content: `Your resume is already optimized! Current ATS score: ${atsScore}/100`,
+            timestamp: new Date(),
+          },
+        ]);
+      } 
+      // Check if score is below 50
+      else if (atsScore < 50) {
+        toast.error('Your resume score is below 50. Please update your resume with relevant skills and experience to achieve a score of at least 50 to optimize.');
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}`,
+            type: 'system',
+            content: `⚠️ Current ATS score: ${atsScore}/100. Please improve your resume to reach at least 50 before optimization.`,
+            timestamp: new Date(),
+          },
+        ]);
+      }
+      // Handle optimized JSON response
+      else if (response.data?.optimizedJson) {
         // Get the Handlebars template from V2 store
         const { createdLatexTemplate } = useResumeStoreV2.getState();
         
@@ -419,11 +471,9 @@ export const OptimizedResumeEditor = ({
           // Update V2 store with optimized JSON (persists for this job ID)
           useResumeStoreV2.setState({ extractedContentJson: response.data.optimizedJson });
           
-          console.log(`✅ Optimization complete! ATS Score: ${response.data.atsScore}/100`);
+          console.log(`✅ Optimization complete! ATS Score: ${atsScore}/100`);
         }
         
-        const atsScore = response.data.atsScore || 0;
-        const iterations = response.data.iterations || 1;
         const scoreMessage = atsScore >= 85 
           ? '✓ Excellent! Your resume achieved 85+ ATS score.' 
           : `✓ Resume optimized! Current ATS score: ${atsScore}/100`;

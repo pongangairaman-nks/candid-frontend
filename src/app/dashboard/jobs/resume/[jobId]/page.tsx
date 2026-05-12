@@ -276,6 +276,8 @@ export default function ResumeOptimizationPage() {
       };
   
       setAtsData(mapped);
+      // Save ATS score to store for optimization check
+      useResumeStoreV2.setState({ currentAtsScore: analysis.ats_score });
       setShowATSModal(true);
     } catch (err: unknown) {
       let errorMessage = 'Failed to check ATS score';

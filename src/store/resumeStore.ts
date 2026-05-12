@@ -76,6 +76,7 @@ export interface ResumeStateV2 {
   
   // ATS Analysis
   atsAnalysis: ATSAnalysisResult | null;
+  currentAtsScore: number | null;
   isAnalyzing: boolean;
   
   // Optimization
@@ -96,6 +97,7 @@ export interface ResumeStateV2 {
   setCreatedLatexTemplate: (template: string) => void;
   setJobDescription: (jd: string) => void;
   setATSAnalysis: (analysis: ATSAnalysisResult) => void;
+  setCurrentAtsScore: (score: number | null) => void;
   setIsAnalyzing: (analyzing: boolean) => void;
   setOptimizationResult: (result: OptimizationResult) => void;
   setIsOptimizing: (optimizing: boolean) => void;
@@ -144,6 +146,7 @@ export const useResumeStoreV2 = create<ResumeStateV2>((set) => ({
   
   // ATS Analysis
   atsAnalysis: null,
+  currentAtsScore: null,
   isAnalyzing: false,
   
   // Optimization
@@ -158,12 +161,13 @@ export const useResumeStoreV2 = create<ResumeStateV2>((set) => ({
   isLoading: false,
   error: null,
   
-  // V2 Actions
+  // Setters
   setWholeMasterTemplate: (template) => set({ wholeMasterTemplate: template }),
   setExtractedContentJson: (content) => set({ extractedContentJson: content }),
   setCreatedLatexTemplate: (template) => set({ createdLatexTemplate: template }),
   setJobDescription: (jd) => set({ jobDescription: jd }),
   setATSAnalysis: (analysis) => set({ atsAnalysis: analysis }),
+  setCurrentAtsScore: (score) => set({ currentAtsScore: score }),
   setIsAnalyzing: (analyzing) => set({ isAnalyzing: analyzing }),
   setOptimizationResult: (result) => set({ optimizationResult: result }),
   setIsOptimizing: (optimizing) => set({ isOptimizing: optimizing }),
@@ -193,6 +197,7 @@ export const useResumeStoreV2 = create<ResumeStateV2>((set) => ({
     createdLatexTemplate: '',
     jobDescription: '',
     atsAnalysis: null,
+    currentAtsScore: null,
     isAnalyzing: false,
     optimizationResult: null,
     isOptimizing: false,
