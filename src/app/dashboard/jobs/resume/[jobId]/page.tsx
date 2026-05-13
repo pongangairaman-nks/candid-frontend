@@ -68,11 +68,22 @@ export default function ResumeOptimizationPage() {
   useEffect(() => {
     if (!jobDescription || !jobId) return;
     
-    // Skip autosave on initial load
+    console.log('📝 Job description changed. isInitialLoad:', isInitialJobDescLoadRef.current, 'pageLoading:', pageLoading);
+    
+    // Skip autosave on initial load (when page is still loading)
+    if (pageLoading) {
+      console.log('⏭️ Skipping autosave - page still loading');
+      return;
+    }
+    
+    // Skip autosave on first user interaction after initial load
     if (isInitialJobDescLoadRef.current) {
+      console.log('⏭️ Skipping autosave on first change after initial load');
       isInitialJobDescLoadRef.current = false;
       return;
     }
+    
+    console.log('💾 Autosaving job description...');
 
     if (autosaveTimeoutRef.current) {
       clearTimeout(autosaveTimeoutRef.current);
@@ -102,13 +113,18 @@ export default function ResumeOptimizationPage() {
         clearTimeout(autosaveTimeoutRef.current);
       }
     };
-  }, [jobDescription, jobId]);
+  }, [jobDescription, jobId, pageLoading]);
 
   // Autosave LaTeX content
   useEffect(() => {
     if (!latexCode || !jobId) return;
     
-    // Skip autosave on initial load
+    // Skip autosave on initial load (when page is still loading)
+    if (pageLoading) {
+      return;
+    }
+    
+    // Skip autosave on first user interaction after initial load
     if (isInitialLatexLoadRef.current) {
       isInitialLatexLoadRef.current = false;
       return;
@@ -143,7 +159,15 @@ export default function ResumeOptimizationPage() {
         clearTimeout(autosaveTimeoutRef.current);
       }
     };
-  }, [latexCode, jobId, activeTab]);
+  }, [latexCode, jobId, activeTab, pageLoading]);
+
+  // Reset initial load ref when page finishes loading
+  useEffect(() => {
+    if (!pageLoading) {
+      isInitialJobDescLoadRef.current = false;
+      isInitialLatexLoadRef.current = false;
+    }
+  }, [pageLoading]);
 
   // Fetch data on mount
   useEffect(() => {

@@ -180,13 +180,13 @@ export function ResumeListingScreen({}: ResumeListingScreenProps) {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Job Applications</h1>
         </div>
-        <button
+        {applications.length > 0 && (<button
           onClick={handleCreateNew}
           className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors"
         >
           <Plus size={18} />
           Create Job
-        </button>
+        </button>)}
       </div>
 
       {/* Table - Conditionally Rendered */}
