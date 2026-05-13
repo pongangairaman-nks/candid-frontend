@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Sparkles, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { useResumeStore } from '@/store/resumeStore';
-import { resumeApi, jobApplicationApi, llmConfigApi, atsLLMApi, type ATSScoreResponse, ATSSuggestion } from '@/services/api';
+import { useResumeStore, useResumeStoreV2 } from '@/store/resumeStore';
+import { resumeApi, jobApplicationApi, llmConfigApi, resumeV2Api, type ATSScoreResponse } from '@/services/api';
+import { compileLatexTemplate } from '@/utils/latexCompiler';
 import { PreviewModal } from '@/components/PreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
 import { OptimizedResumeEditor } from '@/components/OptimizedResumeEditor';
@@ -37,6 +38,12 @@ export default function ResumeOptimizationPage() {
     setLatexCode,
   } = useResumeStore();
 
+  const {
+    setExtractedContentJson,
+    setCreatedLatexTemplate,
+    compileAndSetLatex,
+  } = useResumeStoreV2();
+
   const [activeTab, setActiveTab] = useState<TabType>('resume');
   const [resumeLatexCode, setResumeLatexCode] = useState('');
   const [coverLetterLatexCode, setCoverLetterLatexCode] = useState('');
@@ -49,12 +56,34 @@ export default function ResumeOptimizationPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [llmConfig, setLlmConfig] = useState<any>(null);
   const fetchInitiatedRef = useRef(false);
   const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialJobDescLoadRef = useRef(true);
+  const isInitialLatexLoadRef = useRef(true);
+  const lastSavedTimeInitializedRef = useRef(false);
+
 
   // Autosave job description
   useEffect(() => {
     if (!jobDescription || !jobId) return;
+    
+    console.log('📝 Job description changed. isInitialLoad:', isInitialJobDescLoadRef.current, 'pageLoading:', pageLoading);
+    
+    // Skip autosave on initial load (when page is still loading)
+    if (pageLoading) {
+      console.log('⏭️ Skipping autosave - page still loading');
+      return;
+    }
+    
+    // Skip autosave on first user interaction after initial load
+    if (isInitialJobDescLoadRef.current) {
+      console.log('⏭️ Skipping autosave on first change after initial load');
+      isInitialJobDescLoadRef.current = false;
+      return;
+    }
+    
+    console.log('💾 Autosaving job description...');
 
     if (autosaveTimeoutRef.current) {
       clearTimeout(autosaveTimeoutRef.current);
@@ -66,8 +95,11 @@ export default function ResumeOptimizationPage() {
         const updatedApp = await jobApplicationApi.update(parseInt(jobId), {
           jobDescription: jobDescription,
         });
-        if (updatedApp.lastModifiedAt) {
-          setLastSavedTime(new Date(updatedApp.lastModifiedAt));
+        if (updatedApp.updatedAt) {
+          const clientNow = new Date();
+          console.log('💾 Job description saved. Server updatedAt:', updatedApp.updatedAt);
+          console.log('💾 Setting lastSavedTime to client time:', clientNow.toISOString());
+          setLastSavedTime(clientNow);
         }
       } catch (error) {
         console.error('Failed to autosave job description:', error);
@@ -81,11 +113,22 @@ export default function ResumeOptimizationPage() {
         clearTimeout(autosaveTimeoutRef.current);
       }
     };
-  }, [jobDescription, jobId]);
+  }, [jobDescription, jobId, pageLoading]);
 
   // Autosave LaTeX content
   useEffect(() => {
     if (!latexCode || !jobId) return;
+    
+    // Skip autosave on initial load (when page is still loading)
+    if (pageLoading) {
+      return;
+    }
+    
+    // Skip autosave on first user interaction after initial load
+    if (isInitialLatexLoadRef.current) {
+      isInitialLatexLoadRef.current = false;
+      return;
+    }
 
     if (autosaveTimeoutRef.current) {
       clearTimeout(autosaveTimeoutRef.current);
@@ -98,8 +141,11 @@ export default function ResumeOptimizationPage() {
         const updatedApp = await jobApplicationApi.update(parseInt(jobId), {
           [fieldName]: latexCode,
         });
-        if (updatedApp.lastModifiedAt) {
-          setLastSavedTime(new Date(updatedApp.lastModifiedAt));
+        if (updatedApp.updatedAt) {
+          const clientNow = new Date();
+          console.log('💾 LaTeX saved. Server updatedAt:', updatedApp.updatedAt);
+          console.log('💾 Setting lastSavedTime to client time:', clientNow.toISOString());
+          setLastSavedTime(clientNow);
         }
       } catch (error) {
         console.error('Failed to autosave LaTeX content:', error);
@@ -113,7 +159,15 @@ export default function ResumeOptimizationPage() {
         clearTimeout(autosaveTimeoutRef.current);
       }
     };
-  }, [latexCode, jobId, activeTab]);
+  }, [latexCode, jobId, activeTab, pageLoading]);
+
+  // Reset initial load ref when page finishes loading
+  useEffect(() => {
+    if (!pageLoading) {
+      isInitialJobDescLoadRef.current = false;
+      isInitialLatexLoadRef.current = false;
+    }
+  }, [pageLoading]);
 
   // Fetch data on mount
   useEffect(() => {
@@ -122,17 +176,21 @@ export default function ResumeOptimizationPage() {
         setPageLoading(true);
         setJobDescription('');
 
-        const [jobApp] = await Promise.all([
+        const [jobApp, config] = await Promise.all([
           jobApplicationApi.getById(parseInt(jobId)),
           llmConfigApi.getConfig(),
         ]);
+        
+        setLlmConfig(config);
 
         if (jobApp.jobDescription && jobApp.jobDescription.trim()) {
           setJobDescription(jobApp.jobDescription);
         }
 
-        if (jobApp.lastModifiedAt) {
-          setLastSavedTime(new Date(jobApp.lastModifiedAt));
+        if (jobApp.updatedAt && !lastSavedTimeInitializedRef.current) {
+          // Only set lastSavedTime on initial load once
+          lastSavedTimeInitializedRef.current = true;
+          setLastSavedTime(new Date());
         }
 
         const [resumeTemplate, coverLetterTemplate] = await Promise.all([
@@ -140,10 +198,22 @@ export default function ResumeOptimizationPage() {
           resumeApi.getMasterCoverLetterTemplate(),
         ]);
 
-        if (resumeTemplate.latexCode) {
-          setMasterDocument(resumeTemplate.latexCode);
-          setResumeLatexCode(resumeTemplate.latexCode);
-          setLatexCode(resumeTemplate.latexCode);
+        // Set V2 store with template and extracted JSON
+        if (resumeTemplate.handlebarsTemplate && resumeTemplate.extractedJson) {
+          setCreatedLatexTemplate(resumeTemplate.handlebarsTemplate);
+          setExtractedContentJson(resumeTemplate.extractedJson);
+          // Compile the template to get final LaTeX
+          compileAndSetLatex();
+          
+          // Use only compiled LaTeX (not original) to ensure proper template + JSON combination
+          // This allows for seamless optimization where we can update JSON and recompile
+          const compiledLatex = compileLatexTemplate(
+            resumeTemplate.handlebarsTemplate,
+            resumeTemplate.extractedJson
+          );
+          setMasterDocument(compiledLatex);
+          setResumeLatexCode(compiledLatex);
+          setLatexCode(compiledLatex);
         }
 
         if (coverLetterTemplate.latexCode) {
@@ -170,7 +240,7 @@ export default function ResumeOptimizationPage() {
       fetchInitiatedRef.current = true;
       fetchData();
     }
-  }, [jobId, setMasterDocument, setJobDescription, setLatexCode]);
+  }, [jobId, setMasterDocument, setJobDescription, setLatexCode, setCreatedLatexTemplate, setExtractedContentJson, compileAndSetLatex]);
 
   // Handle tab switching
   useEffect(() => {
@@ -206,88 +276,59 @@ export default function ResumeOptimizationPage() {
       return;
     }
   
-    if (atsLoading) return; // ✅ prevent double clicks
+    if (atsLoading) return;
   
     setAtsLoading(true);
   
     try {
-      // Step 1: Verify LaTeX compiles properly
-      console.log('🔨 Verifying LaTeX compilation...');
-      try {
-        const { pdfUrl: compiledPdfUrl } = await resumeApi.generatePdf(latexCode);
-        setPdfUrl(compiledPdfUrl);
-        console.log('✅ LaTeX compiled successfully');
-      } catch (compilationError: unknown) {
-        const errorMsg = compilationError instanceof Error ? compilationError.message : 'LaTeX compilation failed';
-        console.error('❌ LaTeX compilation error:', errorMsg);
-        toast.error(`LaTeX compilation failed: ${errorMsg}. Please check your resume syntax.`);
+      // Get extracted JSON from V2 store
+      const { extractedContentJson } = useResumeStoreV2.getState();
+      
+      if (!extractedContentJson) {
+        toast.error('Resume data not loaded. Please refresh the page.');
         setAtsLoading(false);
         return;
       }
 
-      // Step 2: Analyze LaTeX content directly
-      console.log('📊 Analyzing ATS score directly from LaTeX content...');
-  
-      // LLM / API switch
-      if (process.env.NEXT_PUBLIC_ATS_LLM_BETA === 'true') {
-        const baseline = await atsLLMApi.baseline({
-          resumeText: latexCode,
-          jobDescription,
-          force: true,
-        });
-  
-        const score = baseline.overallScore || 0;
-  
-        const mapped: ATSScoreResponse = {
-          score,
-          status: score >= 70 ? 'pass' : score >= 50 ? 'review' : 'fail',
-          message:
-            score >= 85
-              ? 'Excellent! Your resume is highly optimized.'
-              : score >= 70
-              ? 'Good! Some improvements can boost your score.'
-              : 'Needs improvement to pass ATS filters.',
-  
-          // 🔥 Keep minimal but useful
-          overview: baseline.summary || '',
-  
-          score_breakdown: baseline.scoreBreakdown || {
-            keyword_match: 0,
-            experience_match: 0,
-            formatting: 0,
-            impact: 0,
-            overall: score,
-          },
-  
-          primary_keywords: baseline.keywords || [],
-          secondary_keywords: [],
-          matching_skills: baseline.matchedSkills || [],
-          missing_skills: baseline.keywordGaps || [],
-  
-          role_focus: baseline.role_focus || baseline.roleFocus || '',
-          seniority_level: baseline.seniority_level || baseline.seniority || '',
-  
-          section_analysis: (baseline.section_analysis || baseline.sectionFeedback || []).map((item: any) => ({
-            section: item.section,
-            feedback: item.feedback,
-          })),
-          improvement_suggestions: baseline.improvement_suggestions || [],
+      console.log('📊 Analyzing resume against job description...');
+      const analysis = await resumeV2Api.analyze(jobDescription, extractedContentJson);
 
-          ats_tips: baseline.ats_tips || baseline.keywordGaps || [],
-          experience_gaps: baseline.experience_gaps && Array.isArray(baseline.experience_gaps) && baseline.experience_gaps.length > 0 && typeof baseline.experience_gaps[0] === 'object' 
-            ? baseline.experience_gaps as { issue: string; impact: string; }[]
-            : [],
-        };
+      // Map V2 response to ATSScoreResponse format
+      const mapped: ATSScoreResponse = {
+        score: analysis.ats_score,
+        status: analysis.ats_score >= 70 ? 'pass' : analysis.ats_score >= 50 ? 'review' : 'fail',
+        message:
+          analysis.ats_score >= 85
+            ? 'Excellent! Your resume is highly optimized.'
+            : analysis.ats_score >= 70
+            ? 'Good! Some improvements can boost your score.'
+            : 'Needs improvement to pass ATS filters.',
+        overview: analysis.analysis.overall_match,
+        score_breakdown: {
+          keyword_match: 0,
+          experience_match: 0,
+          formatting: 0,
+          impact: 0,
+          overall: analysis.ats_score,
+        },
+        primary_keywords: analysis.missing_keywords,
+        secondary_keywords: [],
+        matching_skills: [],
+        missing_skills: analysis.missing_keywords,
+        role_focus: '',
+        seniority_level: '',
+        section_analysis: analysis.weak_sections.map(section => ({
+          section: section.section_name,
+          feedback: section.suggestion,
+        })),
+        improvement_suggestions: [],
+        ats_tips: analysis.optimization_priority,
+        experience_gaps: [],
+      };
   
-        setAtsData(mapped);
-      } else {
-        const response = await resumeApi.checkATSScore(
-          latexCode,
-          jobDescription
-        );
-        setAtsData(response);
-      }
-  
+      setAtsData(mapped);
+      // Save ATS score to store for optimization check
+      useResumeStoreV2.setState({ currentAtsScore: analysis.ats_score });
       setShowATSModal(true);
     } catch (err: unknown) {
       let errorMessage = 'Failed to check ATS score';
@@ -354,7 +395,7 @@ export default function ResumeOptimizationPage() {
           </div>
 
           {/* Center: Tabs */}
-          <div className="flex items-center space-x-1 bg-gray-100/60 p-1 rounded-lg">
+          {/* <div className="flex items-center space-x-1 bg-gray-100/60 p-1 rounded-lg">
             {(['resume', 'coverLetter'] as const).map((tab) => (
               <button
                 key={tab}
@@ -368,7 +409,7 @@ export default function ResumeOptimizationPage() {
                 {tab === 'resume' ? 'Resume' : 'Cover Letter'}
               </button>
             ))}
-          </div>
+          </div> */}
 
         </div>
       </header>
@@ -386,6 +427,7 @@ export default function ResumeOptimizationPage() {
           isCheckingATS={atsLoading}
           activeTab={activeTab}
           atsData={atsData as unknown as ATSScoreResponse}
+          llmConfig={llmConfig}
         />
       </div>
 

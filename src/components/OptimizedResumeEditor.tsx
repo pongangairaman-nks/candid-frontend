@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Sparkles, Copy, Check, Download, TrendingUp, Zap, ChevronDown, ChevronUp, Eye, Wand2 } from 'lucide-react';
 import { llmConfigApi, resumeApi, resumeSectionsApi, type ATSScoreResponse } from '@/services/api';
+import { useResumeStoreV2 } from '@/store/resumeStore';
+import { compileLatexTemplate } from '@/utils/latexCompiler';
 import { toast } from 'react-toastify';
 
 interface Suggestion {
@@ -36,6 +38,7 @@ interface OptimizedResumeEditorProps {
   isCheckingATS?: boolean;
   activeTab?: 'resume' | 'coverLetter';
   atsData?: ATSScoreResponse;
+  llmConfig?: any;
 }
 
 export const OptimizedResumeEditor = ({
@@ -49,6 +52,7 @@ export const OptimizedResumeEditor = ({
   isCheckingATS = false,
   activeTab = 'resume',
   atsData,
+  llmConfig,
 }: OptimizedResumeEditorProps) => {
   console.log('atsData', atsData);
   const [messages, setMessages] = useState<Message[]>([
@@ -67,13 +71,6 @@ export const OptimizedResumeEditor = ({
   const [suggestions, setSuggestions] = useState<any>([]);
   const [expandedSuggestions, setExpandedSuggestions] = useState<string[]>([]);
   const [activeRightTab, setActiveRightTab] = useState<'suggestions' | 'chat'>('suggestions');
-  const [llmConfig, setLlmConfig] = useState<{
-    masterResumePrompt?: string;
-    masterCoverLetterPrompt?: string;
-    masterResume?: string;
-    masterCoverLetter?: string;
-    masterProfile?: string;
-  } | null>(null);
   const [masterPrompt, setMasterPrompt] = useState('');
   const [selectedText, setSelectedText] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
@@ -81,6 +78,7 @@ export const OptimizedResumeEditor = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const latexRef = useRef<HTMLTextAreaElement>(null);
+  const sectionsFetchedRef = useRef(false);
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -96,24 +94,17 @@ export const OptimizedResumeEditor = ({
   useEffect(() => {
     const fetchConfigAndSections = async () => {
       try {
-        const config = await llmConfigApi.getConfig();
-        // API now returns camelCase keys directly
-        setLlmConfig({
-          masterResumePrompt: (config as Record<string, string | undefined>).masterResumePrompt,
-          masterCoverLetterPrompt: (config as Record<string, string | undefined>).masterCoverLetterPrompt,
-          masterResume: (config as Record<string, string | undefined>).masterResume,
-          masterCoverLetter: (config as Record<string, string | undefined>).masterCoverLetter,
-          masterProfile: (config as Record<string, string | undefined>).masterContent,
-        });
-
-        // Fetch sections from backend
-        const sectionsData = await resumeSectionsApi.getSections();
-        if (sectionsData.sections && sectionsData.sections.length > 0) {
-          setSections(sectionsData.sections);
-          console.log('✅ Loaded sections from backend:', sectionsData.sections.map((s) => s.name));
+        // Fetch sections from backend (only once)
+        if (!sectionsFetchedRef.current) {
+          sectionsFetchedRef.current = true;
+          const sectionsData = await resumeSectionsApi.getSections();
+          if (sectionsData.sections && sectionsData.sections.length > 0) {
+            setSections(sectionsData.sections);
+            console.log('✅ Loaded sections from backend:', sectionsData.sections.map((s) => s.name));
+          }
         }
       } catch (error) {
-        console.error('Error fetching config or sections:', error);
+        console.error('Error fetching sections:', error);
       }
     };
     fetchConfigAndSections();
@@ -389,26 +380,118 @@ export const OptimizedResumeEditor = ({
 
     setIsOptimizing(true);
     try {
+      // Get extracted JSON and current ATS score from V2 store
+      const { extractedContentJson, currentAtsScore } = useResumeStoreV2.getState();
+      
+      if (!extractedContentJson) {
+        toast.error('Resume data not loaded. Please refresh the page.');
+        setIsOptimizing(false);
+        return;
+      }
+
+      // If ATS score is available, validate it in frontend
+      if (currentAtsScore !== null && currentAtsScore !== undefined) {
+        if (currentAtsScore < 50) {
+          toast.error('Your resume score is below 50. Please update your resume with relevant skills and experience to achieve a score of at least 50 to optimize.');
+          setIsOptimizing(false);
+          return;
+        }
+
+        if (currentAtsScore >= 85) {
+          toast.success(`Your resume is already optimized! Current score: ${currentAtsScore}/100`);
+          setIsOptimizing(false);
+          return;
+        }
+      }
+
+      // Send optimization request with or without ATS score
+      // Backend will handle ATS analysis if score is not provided
       const response = await resumeApi.optimizeResume({
         jobDescription,
         prompt: masterPrompt,
-        resume: latexCode,
+        extractedContentJson,
+        currentAtsScore: currentAtsScore || undefined,
         masterProfile: llmConfig?.masterProfile,
       });
 
-      if (response.data?.optimizedLatex) {
-        onLatexChange(response.data.optimizedLatex);
-        toast.success('Resume optimized successfully!');
+      // Handle response from backend
+      const atsScore = response.data.atsScore || 0;
+      const iterations = response.data.iterations || 0;
+      
+      // Save ATS score to store for future reference
+      useResumeStoreV2.setState({ currentAtsScore: atsScore });
+      
+      // Check if resume is already optimized (score >= 85)
+      if (atsScore >= 85 && !response.data?.optimizedJson) {
+        toast.success(`Your resume is already optimized! Current score: ${atsScore}/100`);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}`,
+            type: 'system',
+            content: `Your resume is already optimized! Current ATS score: ${atsScore}/100`,
+            timestamp: new Date(),
+          },
+        ]);
+      } 
+      // Check if score is below 50
+      else if (atsScore < 50) {
+        toast.error('Your resume score is below 50. Please update your resume with relevant skills and experience to achieve a score of at least 50 to optimize.');
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}`,
+            type: 'system',
+            content: `⚠️ Current ATS score: ${atsScore}/100. Please improve your resume to reach at least 50 before optimization.`,
+            timestamp: new Date(),
+          },
+        ]);
+      }
+      // Handle optimized JSON response
+      else if (response.data?.optimizedJson) {
+        // Get the Handlebars template from V2 store
+        const { createdLatexTemplate } = useResumeStoreV2.getState();
+        
+        if (createdLatexTemplate) {
+          // Compile optimized JSON with template to get final LaTeX
+          const compiledLatex = compileLatexTemplate(createdLatexTemplate, response.data.optimizedJson);
+          onLatexChange(compiledLatex);
+          
+          // Update V2 store with optimized JSON (persists for this job ID)
+          useResumeStoreV2.setState({ extractedContentJson: response.data.optimizedJson });
+          
+          console.log(`✅ Optimization complete! ATS Score: ${atsScore}/100`);
+        }
+        
+        // Build message based on whether target was reached
+        let scoreMessage = '';
+        
+        if (atsScore >= 85) {
+          scoreMessage = `✓ Excellent! Your resume achieved 85+ ATS score (${atsScore}/100). Iterations: ${iterations}`;
+          toast.success(scoreMessage);
+        } else if (response.data?.max_iterations_reached) {
+          // Max iterations reached but didn't reach 85+
+          const gap = 85 - atsScore;
+          scoreMessage = `⚠️ Optimization completed after ${iterations} iterations. Current score: ${atsScore}/100 (${gap} points below target).\n\n📋 Recommendation: ${response.data.recommendation}`;
+          toast.warning(`Resume optimized to ${atsScore}/100. ${gap} points below target.`);
+        } else {
+          scoreMessage = `✓ Resume optimized! Current ATS score: ${atsScore}/100. Iterations: ${iterations}`;
+          toast.success(scoreMessage);
+        }
         
         setMessages((prev) => [
           ...prev,
           {
             id: `msg-${Date.now()}`,
             type: 'system',
-            content: '✓ Resume optimized successfully! Your resume has been tailored to match the job description.',
+            content: scoreMessage,
             timestamp: new Date(),
           },
         ]);
+      } else if (response.data?.optimizedLatex) {
+        // Fallback for old API response format
+        onLatexChange(response.data.optimizedLatex);
+        toast.success('Resume optimized successfully!');
       }
     } catch (error: unknown) {
       let errorMessage = 'Failed to optimize resume';
@@ -683,8 +766,19 @@ export const OptimizedResumeEditor = ({
           </div>
         </div>
 
-        {/* Right Column: Suggestions & Chat */}
-        <div className="flex-[0.3] flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden">
+        {/* Right Column: Suggestions & Chat - Coming Soon */}
+        <div className="flex-[0.3] flex flex-col bg-white rounded-xl border border-gray-200/50 shadow-sm overflow-hidden relative">
+          {/* Coming Soon Overlay */}
+          <div className="absolute inset-0 bg-black/10 backdrop-blur-xs z-50 flex items-center justify-center rounded-xl">
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white/90 shadow-sm mb-3">
+                <Sparkles className="w-7 h-7 text-blue-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">Coming Soon</h3>
+              <p className="text-xs text-gray-600">AI features available soon</p>
+            </div>
+          </div>
+
           {/* Tab Navigation */}
           <div className="border-b border-gray-200/50 bg-gray-50/50 px-4 py-3 flex items-center space-x-2">
             <button
@@ -722,9 +816,9 @@ export const OptimizedResumeEditor = ({
               {suggestions?.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-center">
                   <div>
-                    <Zap className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    {/* <Zap className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                     <p className="text-sm text-gray-500">No suggestions yet</p>
-                    <p className="text-xs text-gray-400 mt-1">Chat to get AI-powered improvements</p>
+                    <p className="text-xs text-gray-400 mt-1">Chat to get AI-powered improvements</p> */}
                   </div>
                 </div>
               ) : (
