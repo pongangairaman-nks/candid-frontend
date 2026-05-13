@@ -625,7 +625,31 @@ export const OptimizedResumeEditor = ({
   const shouldDisableOptimize = isOptimizing || !isInputValid;
 
   return (
-    <div className="h-full w-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="h-full w-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50 relative">
+      {/* Loading Overlay */}
+      {(isCheckingATS || isOptimizing || isGeneratingPDF) && (
+        <div className="absolute inset-0 bg-black/15 backdrop-blur-xs flex items-center justify-center z-50 rounded-lg">
+          <div className="bg-white rounded-xl shadow-2xl p-8 flex flex-col items-center gap-4">
+            <div className="relative w-12 h-12">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full animate-spin" style={{ clipPath: 'polygon(50% 0%, 100% 0%, 100% 50%, 50% 50%)' }}></div>
+              <div className="absolute inset-1 bg-white rounded-full"></div>
+            </div>
+            <div className="text-center">
+              <p className="text-gray-900 font-semibold">
+                {isCheckingATS && 'Analyzing ATS Score...'}
+                {isOptimizing && 'Optimizing Resume...'}
+                {isGeneratingPDF && 'Generating PDF...'}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                {isCheckingATS && 'This may take a moment'}
+                {isOptimizing && 'Iterating through optimizations (max 3 iterations)'}
+                {isGeneratingPDF && 'Compiling LaTeX to PDF'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Action Bar */}
       <div className="border-b border-gray-200/50 bg-white/80 backdrop-blur-sm px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-2 text-sm text-gray-600">

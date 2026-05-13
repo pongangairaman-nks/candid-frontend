@@ -24,3 +24,103 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Scroll animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Initial hidden state for scroll-triggered animations */
+.animate-fade-in-up,
+.animate-fade-in-left,
+.animate-fade-in-right,
+.animate-fade-in,
+.animate-slide-in-up {
+  opacity: 0;
+}
+
+.animate-stagger > * {
+  opacity: 0;
+}
+
+/* Triggered animations */
+.animate-fade-in-up.visible {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-fade-in-left.visible {
+  animation: fadeInLeft 0.6s ease-out forwards;
+}
+
+.animate-fade-in-right.visible {
+  animation: fadeInRight 0.6s ease-out forwards;
+}
+
+.animate-fade-in.visible {
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+.animate-slide-in-up.visible {
+  animation: slideInUp 0.8s ease-out forwards;
+}
+
+/* Stagger animations for multiple elements */
+.animate-stagger.visible > * {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-stagger.visible > *:nth-child(1) { animation-delay: 0.1s; }
+.animate-stagger.visible > *:nth-child(2) { animation-delay: 0.2s; }
+.animate-stagger.visible > *:nth-child(3) { animation-delay: 0.3s; }
+.animate-stagger.visible > *:nth-child(4) { animation-delay: 0.4s; }
+.animate-stagger.visible > *:nth-child(5) { animation-delay: 0.5s; }
+.animate-stagger.visible > *:nth-child(6) { animation-delay: 0.6s; }
