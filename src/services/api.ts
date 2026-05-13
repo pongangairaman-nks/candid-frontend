@@ -373,7 +373,7 @@ export const resumeApi = {
           prompt,
         }
       );
-      return { optimizedText: response.data.data.optimizedLatex };
+      return { optimizedText: response.data.data.optimizedLatex || '' };
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: { message?: string } } };
       const errorMessage = axiosError.response?.data?.message || 'Failed to optimize section';
