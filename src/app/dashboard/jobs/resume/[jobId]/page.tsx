@@ -56,12 +56,23 @@ export default function ResumeOptimizationPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [llmConfig, setLlmConfig] = useState<any>(null);
   const fetchInitiatedRef = useRef(false);
   const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialJobDescLoadRef = useRef(true);
+  const isInitialLatexLoadRef = useRef(true);
+  const lastSavedTimeInitializedRef = useRef(false);
+
 
   // Autosave job description
   useEffect(() => {
     if (!jobDescription || !jobId) return;
+    
+    // Skip autosave on initial load
+    if (isInitialJobDescLoadRef.current) {
+      isInitialJobDescLoadRef.current = false;
+      return;
+    }
 
     if (autosaveTimeoutRef.current) {
       clearTimeout(autosaveTimeoutRef.current);
@@ -73,8 +84,11 @@ export default function ResumeOptimizationPage() {
         const updatedApp = await jobApplicationApi.update(parseInt(jobId), {
           jobDescription: jobDescription,
         });
-        if (updatedApp.lastModifiedAt) {
-          setLastSavedTime(new Date(updatedApp.lastModifiedAt));
+        if (updatedApp.updatedAt) {
+          const clientNow = new Date();
+          console.log('💾 Job description saved. Server updatedAt:', updatedApp.updatedAt);
+          console.log('💾 Setting lastSavedTime to client time:', clientNow.toISOString());
+          setLastSavedTime(clientNow);
         }
       } catch (error) {
         console.error('Failed to autosave job description:', error);
@@ -93,6 +107,12 @@ export default function ResumeOptimizationPage() {
   // Autosave LaTeX content
   useEffect(() => {
     if (!latexCode || !jobId) return;
+    
+    // Skip autosave on initial load
+    if (isInitialLatexLoadRef.current) {
+      isInitialLatexLoadRef.current = false;
+      return;
+    }
 
     if (autosaveTimeoutRef.current) {
       clearTimeout(autosaveTimeoutRef.current);
@@ -105,8 +125,11 @@ export default function ResumeOptimizationPage() {
         const updatedApp = await jobApplicationApi.update(parseInt(jobId), {
           [fieldName]: latexCode,
         });
-        if (updatedApp.lastModifiedAt) {
-          setLastSavedTime(new Date(updatedApp.lastModifiedAt));
+        if (updatedApp.updatedAt) {
+          const clientNow = new Date();
+          console.log('💾 LaTeX saved. Server updatedAt:', updatedApp.updatedAt);
+          console.log('💾 Setting lastSavedTime to client time:', clientNow.toISOString());
+          setLastSavedTime(clientNow);
         }
       } catch (error) {
         console.error('Failed to autosave LaTeX content:', error);
@@ -129,17 +152,21 @@ export default function ResumeOptimizationPage() {
         setPageLoading(true);
         setJobDescription('');
 
-        const [jobApp] = await Promise.all([
+        const [jobApp, config] = await Promise.all([
           jobApplicationApi.getById(parseInt(jobId)),
           llmConfigApi.getConfig(),
         ]);
+        
+        setLlmConfig(config);
 
         if (jobApp.jobDescription && jobApp.jobDescription.trim()) {
           setJobDescription(jobApp.jobDescription);
         }
 
-        if (jobApp.lastModifiedAt) {
-          setLastSavedTime(new Date(jobApp.lastModifiedAt));
+        if (jobApp.updatedAt && !lastSavedTimeInitializedRef.current) {
+          // Only set lastSavedTime on initial load once
+          lastSavedTimeInitializedRef.current = true;
+          setLastSavedTime(new Date());
         }
 
         const [resumeTemplate, coverLetterTemplate] = await Promise.all([
@@ -344,7 +371,7 @@ export default function ResumeOptimizationPage() {
           </div>
 
           {/* Center: Tabs */}
-          <div className="flex items-center space-x-1 bg-gray-100/60 p-1 rounded-lg">
+          {/* <div className="flex items-center space-x-1 bg-gray-100/60 p-1 rounded-lg">
             {(['resume', 'coverLetter'] as const).map((tab) => (
               <button
                 key={tab}
@@ -358,7 +385,7 @@ export default function ResumeOptimizationPage() {
                 {tab === 'resume' ? 'Resume' : 'Cover Letter'}
               </button>
             ))}
-          </div>
+          </div> */}
 
         </div>
       </header>
@@ -376,6 +403,7 @@ export default function ResumeOptimizationPage() {
           isCheckingATS={atsLoading}
           activeTab={activeTab}
           atsData={atsData as unknown as ATSScoreResponse}
+          llmConfig={llmConfig}
         />
       </div>
 

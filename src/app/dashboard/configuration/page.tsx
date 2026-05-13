@@ -272,7 +272,7 @@ export default function ConfigurationPage() {
           >
             LLM Configuration
           </button>
-          <button
+          {/* <button
             onClick={() => setActiveTab('usage')}
             className={`py-4 px-2 font-medium text-sm border-b-2 transition-colors ${
               activeTab === 'usage'
@@ -281,7 +281,7 @@ export default function ConfigurationPage() {
             }`}
           >
             LLM Usage
-          </button>
+          </button> */}
           <button
             onClick={() => setActiveTab('prompts')}
             className={`py-4 px-2 font-medium text-sm border-b-2 transition-colors ${
@@ -300,9 +300,9 @@ export default function ConfigurationPage() {
                 : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-300'
             }`}
           >
-            Master Template
+            Master Templates
           </button>
-          <button
+          {/* <button
             onClick={() => setActiveTab('content')}
             className={`py-4 px-2 font-medium text-sm border-b-2 transition-colors ${
               activeTab === 'content'
@@ -311,7 +311,7 @@ export default function ConfigurationPage() {
             }`}
           >
             Master Content
-          </button>
+          </button> */}
         </div>
       </div>
 

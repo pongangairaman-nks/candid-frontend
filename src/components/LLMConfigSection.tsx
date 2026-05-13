@@ -63,15 +63,15 @@ const AVAILABLE_MODELS: AvailableModels = {
 export const LLMConfigSection = () => {
   const [providers, setProviders] = useState<Array<{id: string; name: string; provider: string}>>([]);
   
-  const [analyzerProvider, setAnalyzerProvider] = useState('claude');
-  const [analyzerModel, setAnalyzerModel] = useState('claude-3-sonnet-20240229');
+  const [analyzerProvider, setAnalyzerProvider] = useState('');
+  const [analyzerModel, setAnalyzerModel] = useState('');
   const [analyzerApiKey, setAnalyzerApiKey] = useState('');
   const [analyzerApiKeyVisible, setAnalyzerApiKeyVisible] = useState(false);
   const [analyzerAvailableModels, setAnalyzerAvailableModels] = useState<Model[]>([]);
   const [loadingAnalyzerModels, setLoadingAnalyzerModels] = useState(false);
 
-  const [generatorProvider, setGeneratorProvider] = useState('openai');
-  const [generatorModel, setGeneratorModel] = useState('gpt-4o-mini');
+  const [generatorProvider, setGeneratorProvider] = useState('');
+  const [generatorModel, setGeneratorModel] = useState('');
   const [generatorApiKey, setGeneratorApiKey] = useState('');
   const [generatorApiKeyVisible, setGeneratorApiKeyVisible] = useState(false);
   const [generatorAvailableModels, setGeneratorAvailableModels] = useState<Model[]>([]);
@@ -275,6 +275,11 @@ export const LLMConfigSection = () => {
           }
           // Phase 1: Lock LaTeX mode ON regardless of stored value
           setUseLatexTemplate(true);
+          
+          // Fetch models for both providers immediately after loading config
+          console.log('📡 [LLMConfigSection] Fetching models for loaded providers...');
+          fetchModelsForProvider('analyzer', analyzerProvider);
+          fetchModelsForProvider('generator', generatorProvider);
         } else {
           console.warn('⚠️ [LLMConfigSection] Failed to fetch config, status:', response.status);
         }
@@ -446,6 +451,7 @@ export const LLMConfigSection = () => {
                       onChange={(e) => {
                         setGeneratorProvider(e.target.value);
                         setGeneratorModel(AVAILABLE_MODELS[e.target.value]?.[0]?.id || '');
+                        setGeneratorApiKey('');
                         setGeneratorAvailableModels([]);
                         fetchModelsForProvider('generator', e.target.value);
                       }}
@@ -460,15 +466,27 @@ export const LLMConfigSection = () => {
 
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Model</label>
-                    <select
-                      value={generatorModel}
-                      onChange={(e) => setGeneratorModel(e.target.value)}
-                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    >
-                      {generatorModels.map((model) => (
-                        <option key={model.id} value={model.id}>{model.name}</option>
-                      ))}
-                    </select>
+                    {loadingGeneratorModels ? (
+                      <div className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                        <Loader className="w-4 h-4 animate-spin" />
+                        Loading models...
+                      </div>
+                    ) : generatorModels.length > 0 ? (
+                      <select
+                        value={generatorModel}
+                        onChange={(e) => setGeneratorModel(e.target.value)}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      >
+                        {!generatorModel && <option value="">Select a model...</option>}
+                        {generatorModels.map((model) => (
+                          <option key={model.id} value={model.id}>{model.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
+                        No models available
+                      </div>
+                    )}
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                       {generatorProvider === 'claude'
                         ? 'Opus 4.1 recommended for best resume quality and ATS score'
@@ -518,6 +536,7 @@ export const LLMConfigSection = () => {
                       onChange={(e) => {
                         setAnalyzerProvider(e.target.value);
                         setAnalyzerModel(AVAILABLE_MODELS[e.target.value]?.[0]?.id || '');
+                        setAnalyzerApiKey('');
                         setAnalyzerAvailableModels([]);
                         fetchModelsForProvider('analyzer', e.target.value);
                       }}
@@ -532,15 +551,27 @@ export const LLMConfigSection = () => {
 
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Model</label>
-                    <select
-                      value={analyzerModel}
-                      onChange={(e) => setAnalyzerModel(e.target.value)}
-                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      {analyzerModels.map((model) => (
-                        <option key={model.id} value={model.id}>{model.name}</option>
-                      ))}
-                    </select>
+                    {loadingAnalyzerModels ? (
+                      <div className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                        <Loader className="w-4 h-4 animate-spin" />
+                        Loading models...
+                      </div>
+                    ) : analyzerModels.length > 0 ? (
+                      <select
+                        value={analyzerModel}
+                        onChange={(e) => setAnalyzerModel(e.target.value)}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        {!analyzerModel && <option value="">Select a model...</option>}
+                        {analyzerModels.map((model) => (
+                          <option key={model.id} value={model.id}>{model.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
+                        No models available
+                      </div>
+                    )}
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                       {analyzerProvider === 'claude'
                         ? 'Opus 4.1 recommended for best analysis quality'

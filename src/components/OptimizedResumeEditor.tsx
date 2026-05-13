@@ -38,6 +38,7 @@ interface OptimizedResumeEditorProps {
   isCheckingATS?: boolean;
   activeTab?: 'resume' | 'coverLetter';
   atsData?: ATSScoreResponse;
+  llmConfig?: any;
 }
 
 export const OptimizedResumeEditor = ({
@@ -51,6 +52,7 @@ export const OptimizedResumeEditor = ({
   isCheckingATS = false,
   activeTab = 'resume',
   atsData,
+  llmConfig,
 }: OptimizedResumeEditorProps) => {
   console.log('atsData', atsData);
   const [messages, setMessages] = useState<Message[]>([
@@ -69,13 +71,6 @@ export const OptimizedResumeEditor = ({
   const [suggestions, setSuggestions] = useState<any>([]);
   const [expandedSuggestions, setExpandedSuggestions] = useState<string[]>([]);
   const [activeRightTab, setActiveRightTab] = useState<'suggestions' | 'chat'>('suggestions');
-  const [llmConfig, setLlmConfig] = useState<{
-    masterResumePrompt?: string;
-    masterCoverLetterPrompt?: string;
-    masterResume?: string;
-    masterCoverLetter?: string;
-    masterProfile?: string;
-  } | null>(null);
   const [masterPrompt, setMasterPrompt] = useState('');
   const [selectedText, setSelectedText] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
@@ -83,6 +78,7 @@ export const OptimizedResumeEditor = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const latexRef = useRef<HTMLTextAreaElement>(null);
+  const sectionsFetchedRef = useRef(false);
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -98,24 +94,17 @@ export const OptimizedResumeEditor = ({
   useEffect(() => {
     const fetchConfigAndSections = async () => {
       try {
-        const config = await llmConfigApi.getConfig();
-        // API now returns camelCase keys directly
-        setLlmConfig({
-          masterResumePrompt: (config as Record<string, string | undefined>).masterResumePrompt,
-          masterCoverLetterPrompt: (config as Record<string, string | undefined>).masterCoverLetterPrompt,
-          masterResume: (config as Record<string, string | undefined>).masterResume,
-          masterCoverLetter: (config as Record<string, string | undefined>).masterCoverLetter,
-          masterProfile: (config as Record<string, string | undefined>).masterContent,
-        });
-
-        // Fetch sections from backend
-        const sectionsData = await resumeSectionsApi.getSections();
-        if (sectionsData.sections && sectionsData.sections.length > 0) {
-          setSections(sectionsData.sections);
-          console.log('✅ Loaded sections from backend:', sectionsData.sections.map((s) => s.name));
+        // Fetch sections from backend (only once)
+        if (!sectionsFetchedRef.current) {
+          sectionsFetchedRef.current = true;
+          const sectionsData = await resumeSectionsApi.getSections();
+          if (sectionsData.sections && sectionsData.sections.length > 0) {
+            setSections(sectionsData.sections);
+            console.log('✅ Loaded sections from backend:', sectionsData.sections.map((s) => s.name));
+          }
         }
       } catch (error) {
-        console.error('Error fetching config or sections:', error);
+        console.error('Error fetching sections:', error);
       }
     };
     fetchConfigAndSections();
