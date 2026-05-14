@@ -57,11 +57,13 @@ export default function ResumeOptimizationPage() {
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [llmConfig, setLlmConfig] = useState<any>(null);
+  const [isOptimizing, setIsOptimizing] = useState(false);
   const fetchInitiatedRef = useRef(false);
   const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialJobDescLoadRef = useRef(true);
   const isInitialLatexLoadRef = useRef(true);
   const lastSavedTimeInitializedRef = useRef(false);
+  const optimizeCallbackRef = useRef<(() => void) | null>(null);
 
 
   // Autosave job description
@@ -423,6 +425,16 @@ export default function ResumeOptimizationPage() {
           onLatexChange={setLatexCode}
           onGeneratePDF={handleGeneratePDF}
           onCheckATS={handleCheckATSScore}
+          onOptimizeStart={(callback) => {
+            optimizeCallbackRef.current = async () => {
+              setIsOptimizing(true);
+              try {
+                await callback();
+              } finally {
+                setIsOptimizing(false);
+              }
+            };
+          }}
           isGeneratingPDF={pdfLoading}
           isCheckingATS={atsLoading}
           activeTab={activeTab}
@@ -437,7 +449,17 @@ export default function ResumeOptimizationPage() {
       )}
 
       {showATSModal && atsData && (
-        <ATSScoreModal isOpen={showATSModal} atsData={atsData as unknown as ATSScoreResponse} onClose={() => setShowATSModal(false)} />
+        <ATSScoreModal 
+          isOpen={showATSModal} 
+          atsData={atsData as unknown as ATSScoreResponse} 
+          onClose={() => setShowATSModal(false)}
+          onOptimize={() => {
+            if (optimizeCallbackRef.current) {
+              optimizeCallbackRef.current();
+            }
+          }}
+          isOptimizing={isOptimizing}
+        />
       )}
     </div>
   );

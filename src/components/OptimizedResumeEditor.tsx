@@ -34,6 +34,8 @@ interface OptimizedResumeEditorProps {
   onLatexChange: (newLatex: string) => void;
   onGeneratePDF: () => void;
   onCheckATS: () => void;
+  onOptimize?: () => void;
+  onOptimizeStart?: (callback: () => void) => void;
   isGeneratingPDF?: boolean;
   isCheckingATS?: boolean;
   activeTab?: 'resume' | 'coverLetter';
@@ -48,6 +50,8 @@ export const OptimizedResumeEditor = ({
   onLatexChange,
   onGeneratePDF,
   onCheckATS,
+  onOptimize,
+  onOptimizeStart,
   isGeneratingPDF = false,
   isCheckingATS = false,
   activeTab = 'resume',
@@ -525,6 +529,13 @@ export const OptimizedResumeEditor = ({
     }
   };
 
+  // Register optimize callback with parent
+  useEffect(() => {
+    if (onOptimizeStart) {
+      onOptimizeStart(handleOptimizeResume);
+    }
+  }, [onOptimizeStart, handleOptimizeResume]);
+
   // Load suggestions from atsData API response
   useEffect(() => {
     if (atsData?.improvement_suggestions) {
@@ -628,7 +639,7 @@ export const OptimizedResumeEditor = ({
     <div className="h-full w-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50 relative">
       {/* Loading Overlay */}
       {(isCheckingATS || isOptimizing || isGeneratingPDF) && (
-        <div className="absolute inset-0 bg-black/15 backdrop-blur-xs flex items-center justify-center z-50 rounded-lg">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl p-8 flex flex-col items-center gap-4">
             <div className="relative w-12 h-12">
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full animate-spin" style={{ clipPath: 'polygon(50% 0%, 100% 0%, 100% 50%, 50% 50%)' }}></div>
@@ -669,14 +680,6 @@ export const OptimizedResumeEditor = ({
           >
             <TrendingUp className="w-4 h-4" />
             <span>ATS Score</span>
-          </button>
-          <button
-            onClick={handleOptimizeResume}
-            disabled={shouldDisableOptimize}
-            className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 transition-all duration-200"
-          >
-            <Wand2 className="w-4 h-4" />
-            <span>Optimize</span>
           </button>
           <button
             onClick={onGeneratePDF}

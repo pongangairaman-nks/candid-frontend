@@ -50,6 +50,7 @@ interface ATSSuggestion {
 interface ATSScoreModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onOptimize?: () => void;
   atsData: {
     score: number;
     status: string;
@@ -95,6 +96,7 @@ interface ATSScoreModalProps {
     breakdown?: ATSBreakdown; // keep old fallback
   } | null;
   isLoading?: boolean;
+  isOptimizing?: boolean;
   lastDelta?: number;
   lastSectionKey?: string;
 }
@@ -102,8 +104,10 @@ interface ATSScoreModalProps {
 export const ATSScoreModal = ({
   isOpen,
   onClose,
+  onOptimize,
   atsData,
   isLoading = false,
+  isOptimizing = false,
   lastDelta,
   lastSectionKey,
 }: ATSScoreModalProps) => {
@@ -462,13 +466,27 @@ export const ATSScoreModal = ({
             </div>
 
             {/* Footer */}
-            <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 flex justify-end">
+            <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 flex justify-between items-center">
               <button
                 onClick={onClose}
                 className="px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white hover:bg-slate-300 dark:hover:bg-slate-600 font-medium"
               >
                 Close
               </button>
+              {onOptimize && (
+                <button
+                  onClick={() => {
+                    onOptimize();
+                    onClose();
+                  }}
+                  disabled={isOptimizing || (atsData?.score !== undefined && atsData.score < 50)}
+                  title={atsData?.score && atsData.score < 50 ? 'Score below 50 - Please update your resume with relevant information to optimize' : ''}
+                  className="inline-flex items-center space-x-2 px-6 py-2 rounded-lg bg-linear-to-r from-emerald-600 to-teal-600 text-white font-medium hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>{isOptimizing ? 'Optimizing...' : 'Optimize Resume'}</span>
+                </button>
+              )}
             </div>
           </>
         ) : (
