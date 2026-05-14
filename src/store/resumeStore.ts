@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { compileLatexTemplate } from '@/utils/latexCompiler';
 import type { ATSScoreResponse } from '@/services/api';
 
+export type { ATSScoreResponse };
+
 // V1 State (Original)
 export interface ResumeState {
   masterDocument: string;
@@ -137,7 +139,7 @@ export interface ResumeStateV2 {
   setExtractedContentJson: (content: ResumeContentV2) => void;
   setCreatedLatexTemplate: (template: string) => void;
   setJobDescription: (jd: string) => void;
-  setATSAnalysis: (analysis: ATSAnalysisResult) => void;
+  setATSAnalysis: (analysis: ATSScoreResponse) => void;
   setCurrentAtsScore: (score: number | null) => void;
   setIsAnalyzing: (analyzing: boolean) => void;
   setLastAnalysisTimestamp: (timestamp: number | null) => void;
@@ -229,7 +231,7 @@ export const useResumeStoreV2 = create<ResumeStateV2>((set) => ({
     try {
       const compiledLatex = compileLatexTemplate(
         state.createdLatexTemplate,
-        state.extractedContentJson as Record<string, unknown>
+        state.extractedContentJson as any
       );
       return { finalLatex: compiledLatex, error: null };
     } catch (error) {

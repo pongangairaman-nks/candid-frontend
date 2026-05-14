@@ -213,7 +213,7 @@ export const ResumeOptimizationScreenV2 = () => {
             {atsAnalysis && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <ATSAnalysisDisplayV2
-                  analysis={atsAnalysis}
+                  analysis={atsAnalysis as unknown as any}
                   isLoading={isAnalyzing}
                   onOptimizeClick={handleOptimize}
                 />
