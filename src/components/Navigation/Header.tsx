@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronRight, Menu, X } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -37,14 +37,21 @@ export const Header = ({ sidebarOpen, onToggleSidebar }: HeaderProps) => {
         {/* Sidebar Toggle Button */}
         <button
           onClick={onToggleSidebar}
-          className="hidden md:flex p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-600 dark:text-slate-400"
+          className="p-2.5 bg-indigo-100/50 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-lg transition-all duration-200 flex-shrink-0 group"
           title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+          aria-label="Toggle sidebar"
         >
-          {sidebarOpen ? (
-            <X size={20} />
-          ) : (
-            <Menu size={20} />
-          )}
+          <div className={`w-5 h-5 flex items-center justify-center relative transition-transform duration-500 ${sidebarOpen ? 'rotate-180' : 'rotate-0'}`}>
+            {/* Left panel block */}
+            <div className="absolute left-0 w-1 h-4 bg-indigo-600 dark:bg-indigo-400 rounded-r transition-colors duration-300 group-hover:bg-indigo-700 dark:group-hover:bg-indigo-300"></div>
+            
+            {/* Right content lines with stagger effect */}
+            <div className="absolute right-0 space-y-1 transition-colors duration-300">
+              <div className="w-2 h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-full transition-colors duration-300 group-hover:bg-indigo-700 dark:group-hover:bg-indigo-300"></div>
+              <div className="w-2.5 h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-full transition-colors duration-300 group-hover:bg-indigo-700 dark:group-hover:bg-indigo-300"></div>
+              <div className="w-2 h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-full transition-colors duration-300 group-hover:bg-indigo-700 dark:group-hover:bg-indigo-300"></div>
+            </div>
+          </div>
         </button>
 
         {/* Breadcrumb Navigation */}

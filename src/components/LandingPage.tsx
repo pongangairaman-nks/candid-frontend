@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/store/authStore';
 import { LoginForm, SignupForm } from './Auth';
-import { Menu, X, ArrowRight, CheckCircle2, Zap, FileText, BarChart3, Sparkles, Brain, Lightbulb } from 'lucide-react';
+import { Menu, X, ArrowRight, CheckCircle2, Zap, FileText, BarChart3, Sparkles, Brain, Lightbulb, LogOut } from 'lucide-react';
 
 // Hook to trigger animations on scroll
 const useScrollTrigger = (animationClass: string) => {
@@ -35,9 +37,12 @@ const useScrollTrigger = (animationClass: string) => {
 };
 
 export const LandingPage = () => {
+  const router = useRouter();
+  const { isAuthenticated, user, logout } = useAuthStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
+  const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
 
   // Scroll animation refs
   const heroLeftRef = useRef<HTMLDivElement>(null);
@@ -48,8 +53,13 @@ export const LandingPage = () => {
   const benefitsRightRef = useScrollTrigger('animate-fade-in-right');
   const benefitsListRef = useScrollTrigger('animate-stagger');
 
-  // Make hero section visible on mount
+  // Initialize auth and make hero section visible on mount
   useEffect(() => {
+    // Initialize auth from localStorage
+    const { initializeAuth } = useAuthStore.getState();
+    initializeAuth();
+
+    // Make hero section visible
     if (heroLeftRef.current) {
       heroLeftRef.current.classList.add('visible');
     }
@@ -57,6 +67,30 @@ export const LandingPage = () => {
       heroRightRef.current.classList.add('visible');
     }
   }, []);
+
+  // Get user initial from firstName or email
+  const getUserInitial = () => {
+    if (user?.firstName) {
+      return user.firstName.charAt(0).toUpperCase();
+    }
+    if (user?.email) {
+      return user.email.charAt(0).toUpperCase();
+    }
+    return 'U';
+  };
+
+  const handleLogout = () => {
+    logout();
+    setIsMenuOpen(false);
+  };
+
+  const handleLogoClick = () => {
+    router.push('/');
+  };
+
+  const handleDashboardClick = () => {
+    router.push('/dashboard/jobs');
+  };
 
   const features = [
     {
@@ -130,12 +164,15 @@ export const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <div className="flex items-center space-x-2">
+            <button
+              onClick={handleLogoClick}
+              className="flex items-center space-x-2 hover:opacity-80 transition"
+            >
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-bold text-slate-900">Candid</span>
-            </div>
+            </button>
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
@@ -144,24 +181,64 @@ export const LandingPage = () => {
               <a href="#benefits" className="text-slate-600 hover:text-slate-900 transition">Why Us</a>
             </div>
 
-            {/* Auth Buttons */}
+            {/* Auth Buttons / User Menu */}
             <div className="hidden md:flex items-center space-x-4">
-              <button
-                onClick={() => {
-                  setShowLoginModal(true);
-                }}
-                className="px-4 py-2 border border-slate-300 text-slate-700 hover:text-slate-900 hover:border-slate-400 hover:bg-slate-50 rounded-lg transition font-medium"
-              >
-                Login
-              </button>
-              <button
-                onClick={() => {
-                  setShowSignupModal(true);
-                }}
-                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg hover:shadow-lg transition"
-              >
-                Sign Up
-              </button>
+              {isAuthenticated && user ? (
+                <>
+                  <button
+                    onClick={handleDashboardClick}
+                    className="px-4 py-2 text-slate-700 hover:text-slate-900 transition font-medium"
+                  >
+                    Dashboard
+                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
+                      className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-semibold text-sm cursor-pointer hover:bg-indigo-700 transition"
+                      title={user.email}
+                    >
+                      {getUserInitial()}
+                    </button>
+                    {showAvatarDropdown && (
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-2 z-50">
+                        <div className="px-4 py-2 border-b border-slate-200">
+                          <p className="text-sm font-medium text-slate-900">{user.firstName || user.email}</p>
+                          <p className="text-xs text-slate-600">{user.email}</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            handleLogout();
+                            setShowAvatarDropdown(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-slate-700 hover:text-red-600 hover:bg-slate-50 transition font-medium flex items-center gap-2"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Logout
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      setShowLoginModal(true);
+                    }}
+                    className="px-4 py-2 border border-slate-300 text-slate-700 hover:text-slate-900 hover:border-slate-400 hover:bg-slate-50 rounded-lg transition font-medium"
+                  >
+                    Login
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowSignupModal(true);
+                    }}
+                    className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg hover:shadow-lg transition"
+                  >
+                    Sign Up
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Mobile Menu Button */}
@@ -180,24 +257,67 @@ export const LandingPage = () => {
               <a href="#workflow" className="block text-slate-600 hover:text-slate-900">How It Works</a>
               <a href="#benefits" className="block text-slate-600 hover:text-slate-900">Why Us</a>
               <div className="flex flex-col space-y-2 pt-4 border-t">
-                <button
-                  onClick={() => {
-                    setShowLoginModal(true);
-                    setIsMenuOpen(false);
-                  }}
-                  className="px-4 py-2 border border-slate-300 text-slate-700 hover:text-slate-900 hover:border-slate-400 hover:bg-slate-50 rounded-lg transition font-medium"
-                >
-                  Login
-                </button>
-                <button
-                  onClick={() => {
-                    setShowSignupModal(true);
-                    setIsMenuOpen(false);
-                  }}
-                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg hover:shadow-lg transition"
-                >
-                  Sign Up
-                </button>
+                {isAuthenticated && user ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        handleDashboardClick();
+                        setIsMenuOpen(false);
+                      }}
+                      className="px-4 py-2 text-slate-700 hover:text-slate-900 transition font-medium text-left"
+                    >
+                      Dashboard
+                    </button>
+                    <button
+                      onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
+                      className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50 rounded-lg transition w-full"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-semibold text-sm shrink-0">
+                        {getUserInitial()}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-sm font-medium text-slate-900">{user.firstName || user.email}</p>
+                        <p className="text-xs text-slate-600">{user.email}</p>
+                      </div>
+                    </button>
+                    {showAvatarDropdown && (
+                      <div className="bg-slate-50 rounded-lg border border-slate-200 py-2 space-y-1">
+                        <button
+                          onClick={() => {
+                            handleLogout();
+                            setIsMenuOpen(false);
+                            setShowAvatarDropdown(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-slate-700 hover:text-red-600 hover:bg-white transition font-medium flex items-center gap-2"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Logout
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowLoginModal(true);
+                        setIsMenuOpen(false);
+                      }}
+                      className="px-4 py-2 border border-slate-300 text-slate-700 hover:text-slate-900 hover:border-slate-400 hover:bg-slate-50 rounded-lg transition font-medium"
+                    >
+                      Login
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSignupModal(true);
+                        setIsMenuOpen(false);
+                      }}
+                      className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg hover:shadow-lg transition"
+                    >
+                      Sign Up
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -453,7 +573,10 @@ export const LandingPage = () => {
               </div>
 
               <LoginForm
-                onSuccess={() => setShowLoginModal(false)}
+                onSuccess={() => {
+                  setShowLoginModal(false);
+                  router.push('/dashboard/jobs');
+                }}
                 onSwitchToSignup={() => {
                   setShowLoginModal(false);
                   setShowSignupModal(true);
@@ -480,7 +603,10 @@ export const LandingPage = () => {
               </div>
 
               <SignupForm
-                onSuccess={() => setShowSignupModal(false)}
+                onSuccess={() => {
+                  setShowSignupModal(false);
+                  router.push('/dashboard/jobs');
+                }}
                 onSwitchToLogin={() => {
                   setShowSignupModal(false);
                   setShowLoginModal(true);

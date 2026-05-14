@@ -3,7 +3,7 @@
 import { FileText, Settings, LogOut, Menu, X, Zap } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 interface NavigationSidebarProps {
   isOpen: boolean;
@@ -13,6 +13,11 @@ interface NavigationSidebarProps {
 export const NavigationSidebar = ({ isOpen, onToggle }: NavigationSidebarProps) => {
   const { user, logout } = useAuthStore();
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogoClick = () => {
+    router.push('/');
+  };
 
   const navItems = [
     {
@@ -49,23 +54,27 @@ export const NavigationSidebar = ({ isOpen, onToggle }: NavigationSidebarProps) 
         } z-40`}
       >
         {/* Logo */}
-        <button
-          onClick={() => onToggle(true)}
-          className={`w-full border-b border-slate-200 dark:border-slate-700 flex items-center justify-start transition-all duration-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 ${isOpen ? 'p-6' : 'p-4'}`}
-          title={!isOpen ? 'Open sidebar' : undefined}
-        >
+        <div className={`w-full border-b border-slate-200 dark:border-slate-700 flex items-center justify-start transition-all duration-300 ${isOpen ? 'p-6' : 'p-4'}`}>
           <div className={`flex items-start gap-3 ${isOpen ? '' : 'flex-col items-center'}`}>
-            <div className="w-9 h-9 rounded-lg bg-linear-to-br from-indigo-600 to-indigo-700 flex items-center justify-center shrink-0 mt-1">
+            <button
+              onClick={handleLogoClick}
+              className="w-9 h-9 rounded-lg bg-linear-to-br from-indigo-600 to-indigo-700 flex items-center justify-center shrink-0 mt-1 hover:opacity-80 transition"
+              title="Go to home"
+            >
               <Zap size={18} className="text-white" />
-            </div>
+            </button>
             {isOpen && (
-              <div className="flex-1">
+              <button
+                onClick={() => onToggle(false)}
+                className="flex-1 text-left hover:opacity-80 transition"
+                title="Close sidebar"
+              >
                 <h1 className="text-xl font-bold text-slate-900 dark:text-white">Candid</h1>
                 <p className="text-xs text-slate-500 dark:text-slate-400">ATS Optimizer</p>
-              </div>
+              </button>
             )}
           </div>
-        </button>
+        </div>
 
         {/* Navigation Items */}
         <nav className="flex-1 p-4 space-y-2">
