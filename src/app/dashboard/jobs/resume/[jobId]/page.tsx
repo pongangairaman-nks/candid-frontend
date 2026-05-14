@@ -326,6 +326,7 @@ export default function ResumeOptimizationPage() {
         improvement_suggestions: [],
         ats_tips: analysis.optimization_priority,
         experience_gaps: [],
+        diagnostic: analysis.diagnostic || null,
       };
   
       setAtsData(mapped);
@@ -452,6 +453,7 @@ export default function ResumeOptimizationPage() {
         <ATSScoreModal 
           isOpen={showATSModal} 
           atsData={atsData as unknown as ATSScoreResponse} 
+          diagnostic={atsData.diagnostic || null}
           onClose={() => setShowATSModal(false)}
           onOptimize={() => {
             if (optimizeCallbackRef.current) {

@@ -269,6 +269,43 @@ export interface ATSScoreResponse {
   ats_tips: string[];
   improvement_suggestions: ATSSuggestion[];
   breakdown?: ATSBreakdown;
+  diagnostic?: {
+    current_ats_score: number;
+    achievable_score_without_new_experience: number;
+    score_gap: number;
+    critical_gaps: Array<{
+      gap: string;
+      required_in_jd: boolean;
+      present_in_resume: boolean;
+      fixable: boolean;
+      reason: string;
+    }>;
+    optimization_opportunities: Array<{
+      section: string;
+      current_content: string;
+      issue: string;
+      suggestion: string;
+      impact_on_score: number;
+    }>;
+    content_gaps: Array<{
+      gap: string;
+      likely_present: string;
+      not_mentioned: boolean;
+      suggestion: string;
+    }>;
+    honest_assessment: {
+      is_resume_fixable: boolean;
+      reason: string;
+      effort_required: "low" | "medium" | "high";
+      realistic_outcome: string;
+    };
+    recommendations: Array<{
+      priority: "critical" | "high" | "medium" | "low";
+      action: string;
+      expected_score_impact: number;
+      effort: "low" | "medium" | "high";
+    }>;
+  } | null;
 }
 
 export const resumeApi = {
@@ -592,6 +629,43 @@ export interface ATSAnalysisV2Response {
   }>;
   missing_keywords: string[];
   optimization_priority: string[];
+  diagnostic?: {
+    current_ats_score: number;
+    achievable_score_without_new_experience: number;
+    score_gap: number;
+    critical_gaps: Array<{
+      gap: string;
+      required_in_jd: boolean;
+      present_in_resume: boolean;
+      fixable: boolean;
+      reason: string;
+    }>;
+    optimization_opportunities: Array<{
+      section: string;
+      current_content: string;
+      issue: string;
+      suggestion: string;
+      impact_on_score: number;
+    }>;
+    content_gaps: Array<{
+      gap: string;
+      likely_present: string;
+      not_mentioned: boolean;
+      suggestion: string;
+    }>;
+    honest_assessment: {
+      is_resume_fixable: boolean;
+      reason: string;
+      effort_required: "low" | "medium" | "high";
+      realistic_outcome: string;
+    };
+    recommendations: Array<{
+      priority: "critical" | "high" | "medium" | "low";
+      action: string;
+      expected_score_impact: number;
+      effort: "low" | "medium" | "high";
+    }>;
+  } | null;
 }
 
 export const resumeV2Api = {

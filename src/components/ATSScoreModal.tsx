@@ -47,6 +47,44 @@ interface ATSSuggestion {
   impact: string;
 }
 
+interface DiagnosticData {
+  current_ats_score: number;
+  achievable_score_without_new_experience: number;
+  score_gap: number;
+  critical_gaps: Array<{
+    gap: string;
+    required_in_jd: boolean;
+    present_in_resume: boolean;
+    fixable: boolean;
+    reason: string;
+  }>;
+  optimization_opportunities: Array<{
+    section: string;
+    current_content: string;
+    issue: string;
+    suggestion: string;
+    impact_on_score: number;
+  }>;
+  content_gaps: Array<{
+    gap: string;
+    likely_present: string;
+    not_mentioned: boolean;
+    suggestion: string;
+  }>;
+  honest_assessment: {
+    is_resume_fixable: boolean;
+    reason: string;
+    effort_required: "low" | "medium" | "high";
+    realistic_outcome: string;
+  };
+  recommendations: Array<{
+    priority: "critical" | "high" | "medium" | "low";
+    action: string;
+    expected_score_impact: number;
+    effort: "low" | "medium" | "high";
+  }>;
+}
+
 interface ATSScoreModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -95,6 +133,7 @@ interface ATSScoreModalProps {
 
     breakdown?: ATSBreakdown; // keep old fallback
   } | null;
+  diagnostic?: DiagnosticData | null;
   isLoading?: boolean;
   isOptimizing?: boolean;
   lastDelta?: number;
@@ -106,17 +145,19 @@ export const ATSScoreModal = ({
   onClose,
   onOptimize,
   atsData,
+  diagnostic,
   isLoading = false,
   isOptimizing = false,
   lastDelta,
   lastSectionKey,
 }: ATSScoreModalProps) => {
   // const tabArray = ["overview", "breakdown", "suggestions", "analysis"];
-  const tabArray = ["overview", "analysis"];
+  const tabArray = diagnostic ? ["overview", "diagnostic", "analysis"] : ["overview", "analysis"];
   const [activeTab, setActiveTab] = useState<
-    "overview" | "breakdown" | "suggestions" | "analysis"
+    "overview" | "breakdown" | "suggestions" | "analysis" | "diagnostic"
   >("overview");
   console.log("atsData", atsData);
+  console.log("diagnostic", diagnostic);
   if (!isOpen) return null;
 
   const getScoreColor = (score: number) => {
@@ -445,6 +486,94 @@ export const ATSScoreModal = ({
                 </div>
               )}
 
+              {/* Diagnostic */}
+              {activeTab === "diagnostic" && diagnostic && (
+                <div className="space-y-6">
+                  {/* Score Summary */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Current Score</p>
+                      <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{diagnostic.current_ats_score}/100</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Achievable Max</p>
+                      <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{diagnostic.achievable_score_without_new_experience}/100</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Gap</p>
+                      <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{diagnostic.score_gap}</p>
+                    </div>
+                  </div>
+
+                  {/* Honest Assessment */}
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-start gap-3">
+                      {diagnostic.honest_assessment.is_resume_fixable ? (
+                        <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-1" />
+                      ) : (
+                        <AlertTriangle className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-1" />
+                      )}
+                      <div>
+                        <h4 className="font-semibold text-slate-900 dark:text-white mb-1">
+                          {diagnostic.honest_assessment.is_resume_fixable ? "Resume Can Be Improved" : "Limited Improvement Possible"}
+                        </h4>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 mb-2">{diagnostic.honest_assessment.reason}</p>
+                        <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                          Realistic Outcome: <span className="text-slate-900 dark:text-white">{diagnostic.honest_assessment.realistic_outcome}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Critical Gaps */}
+                  {diagnostic.critical_gaps.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                        Critical Gaps
+                      </h4>
+                      <div className="space-y-2">
+                        {diagnostic.critical_gaps.map((gap, idx) => (
+                          <div key={idx} className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                            <p className="font-medium text-red-900 dark:text-red-200 text-sm">{gap.gap}</p>
+                            <p className="text-xs text-red-700 dark:text-red-300 mt-1">{gap.reason}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recommendations */}
+                  {diagnostic.recommendations.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-slate-900 dark:text-white mb-3">Top Recommendations</h4>
+                      <div className="space-y-2">
+                        {diagnostic.recommendations.slice(0, 5).map((rec, idx) => (
+                          <div key={idx} className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <p className="font-medium text-slate-900 dark:text-white text-sm">{rec.action}</p>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                                  Impact: +{rec.expected_score_impact} points | Effort: {rec.effort}
+                                </p>
+                              </div>
+                              <span className={`text-xs font-semibold px-2 py-1 rounded whitespace-nowrap ${
+                                rec.priority === 'critical' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                                rec.priority === 'high' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' :
+                                rec.priority === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
+                                'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                              }`}>
+                                {rec.priority}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Analysis */}
               {activeTab === "analysis" && (
                 <div className="space-y-4">
@@ -480,11 +609,19 @@ export const ATSScoreModal = ({
                     onClose();
                   }}
                   disabled={isOptimizing || (atsData?.score !== undefined && atsData.score < 50)}
-                  title={atsData?.score && atsData.score < 50 ? 'Score below 50 - Please update your resume with relevant information to optimize' : ''}
+                  title={
+                    atsData?.score && atsData.score < 50 
+                      ? 'Score below 50 - Please update your resume with relevant information to optimize'
+                      : diagnostic
+                      ? `Optimize (Max achievable: ${diagnostic.achievable_score_without_new_experience}/100)`
+                      : 'Optimize Resume'
+                  }
                   className="inline-flex items-center space-x-2 px-6 py-2 rounded-lg bg-linear-to-r from-emerald-600 to-teal-600 text-white font-medium hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   <Zap className="w-4 h-4" />
-                  <span>{isOptimizing ? 'Optimizing...' : 'Optimize Resume'}</span>
+                  <span>
+                    {isOptimizing ? 'Optimizing...' : diagnostic ? `Optimize (Max: ${diagnostic.achievable_score_without_new_experience})` : 'Optimize Resume'}
+                  </span>
                 </button>
               )}
             </div>
