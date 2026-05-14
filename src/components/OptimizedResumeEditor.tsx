@@ -34,6 +34,8 @@ interface OptimizedResumeEditorProps {
   onLatexChange: (newLatex: string) => void;
   onGeneratePDF: () => void;
   onCheckATS: () => void;
+  onOptimize?: () => void;
+  onOptimizeStart?: (callback: () => void) => void;
   isGeneratingPDF?: boolean;
   isCheckingATS?: boolean;
   activeTab?: 'resume' | 'coverLetter';
@@ -48,6 +50,8 @@ export const OptimizedResumeEditor = ({
   onLatexChange,
   onGeneratePDF,
   onCheckATS,
+  onOptimize,
+  onOptimizeStart,
   isGeneratingPDF = false,
   isCheckingATS = false,
   activeTab = 'resume',
@@ -525,6 +529,13 @@ export const OptimizedResumeEditor = ({
     }
   };
 
+  // Register optimize callback with parent
+  useEffect(() => {
+    if (onOptimizeStart) {
+      onOptimizeStart(handleOptimizeResume);
+    }
+  }, [onOptimizeStart, handleOptimizeResume]);
+
   // Load suggestions from atsData API response
   useEffect(() => {
     if (atsData?.improvement_suggestions) {
@@ -628,22 +639,30 @@ export const OptimizedResumeEditor = ({
     <div className="h-full w-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50 relative">
       {/* Loading Overlay */}
       {(isCheckingATS || isOptimizing || isGeneratingPDF) && (
-        <div className="absolute inset-0 bg-black/15 backdrop-blur-xs flex items-center justify-center z-50 rounded-lg">
-          <div className="bg-white rounded-xl shadow-2xl p-8 flex flex-col items-center gap-4">
-            <div className="relative w-12 h-12">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full animate-spin" style={{ clipPath: 'polygon(50% 0%, 100% 0%, 100% 50%, 50% 50%)' }}></div>
-              <div className="absolute inset-1 bg-white rounded-full"></div>
-            </div>
-            <div className="text-center">
-              <p className="text-gray-900 font-semibold">
-                {isCheckingATS && 'Analyzing ATS Score...'}
-                {isOptimizing && 'Optimizing Resume...'}
-                {isGeneratingPDF && 'Generating PDF...'}
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-[9999]">
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl p-8 max-w-md w-full mx-4">
+            <div className="flex flex-col items-center">
+              <div className="relative w-16 h-16 mb-6">
+                <div className="absolute inset-0 rounded-full border-4 border-slate-200 dark:border-slate-700"></div>
+                <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-600 dark:border-t-blue-400 animate-spin"></div>
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+                {isCheckingATS && 'Analyzing ATS Score'}
+                {isOptimizing && 'Optimizing Resume'}
+                {isGeneratingPDF && 'Generating PDF'}
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 text-center mb-4">
+                {isCheckingATS && 'Analyzing your resume against the job description...'}
+                {isOptimizing && 'Analyzing and improving your resume to match the job description...'}
+                {isGeneratingPDF && 'Compiling LaTeX to PDF...'}
               </p>
-              <p className="text-sm text-gray-500 mt-1">
-                {isCheckingATS && 'This may take a moment'}
-                {isOptimizing && 'Iterating through optimizations (max 3 iterations)'}
-                {isGeneratingPDF && 'Compiling LaTeX to PDF'}
+              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                <div className="h-full bg-linear-to-r from-blue-600 to-indigo-600 dark:from-blue-500 dark:to-indigo-500 animate-pulse"></div>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-4">
+                {isCheckingATS && 'This may take 10-20 seconds'}
+                {isOptimizing && 'This may take 30-60 seconds'}
+                {isGeneratingPDF && 'This may take a few seconds'}
               </p>
             </div>
           </div>
@@ -669,14 +688,6 @@ export const OptimizedResumeEditor = ({
           >
             <TrendingUp className="w-4 h-4" />
             <span>ATS Score</span>
-          </button>
-          <button
-            onClick={handleOptimizeResume}
-            disabled={shouldDisableOptimize}
-            className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-medium hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 transition-all duration-200"
-          >
-            <Wand2 className="w-4 h-4" />
-            <span>Optimize</span>
           </button>
           <button
             onClick={onGeneratePDF}

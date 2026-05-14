@@ -72,7 +72,7 @@ export const useAnalyzeResume = () => {
         console.log(`✅ Analysis complete (Score: ${analysis.ats_score}/100)`);
 
         // Store in Zustand
-        setATSAnalysis(analysis);
+        setATSAnalysis(analysis as any);
 
         return analysis;
       } catch (error) {

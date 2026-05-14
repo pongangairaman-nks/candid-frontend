@@ -8,6 +8,7 @@ import { resumeApi, jobApplicationApi, llmConfigApi, resumeV2Api, type ATSScoreR
 import { compileLatexTemplate } from '@/utils/latexCompiler';
 import { PreviewModal } from '@/components/PreviewModal';
 import { ATSScoreModal } from '@/components/ATSScoreModal';
+import { OptimizeResultsModal } from '@/components/OptimizeResultsModal';
 import { OptimizedResumeEditor } from '@/components/OptimizedResumeEditor';
 import { useParams } from 'next/navigation';
 
@@ -53,15 +54,21 @@ export default function ResumeOptimizationPage() {
   const [showATSModal, setShowATSModal] = useState(false);
   const [atsLoading, setAtsLoading] = useState(false);
   const [atsData, setAtsData] = useState<ATSScoreResponse | null>(null);
+  const [analysisTimestamp, setAnalysisTimestamp] = useState<number | null>(null);
+  const [showOptimizeResults, setShowOptimizeResults] = useState(false);
+  const [optimizeResults, setOptimizeResults] = useState<any>(null);
+  const [optimizationHistory, setOptimizationHistory] = useState<number[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [llmConfig, setLlmConfig] = useState<any>(null);
+  const [isOptimizing, setIsOptimizing] = useState(false);
   const fetchInitiatedRef = useRef(false);
   const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialJobDescLoadRef = useRef(true);
   const isInitialLatexLoadRef = useRef(true);
   const lastSavedTimeInitializedRef = useRef(false);
+  const optimizeCallbackRef = useRef<(() => void) | null>(null);
 
 
   // Autosave job description
@@ -270,13 +277,22 @@ export default function ResumeOptimizationPage() {
     }
   };
 
-  const handleCheckATSScore = async () => {
+  const handleCheckATSScore = async (forceRefresh: boolean = false) => {
     if (!latexCode || !jobDescription) {
       toast.error('Please generate resume and provide job description');
       return;
     }
   
     if (atsLoading) return;
+
+    // Check if we have cached analysis and user didn't force refresh
+    const { atsAnalysis, lastAnalysisTimestamp } = useResumeStoreV2.getState();
+    if (!forceRefresh && atsAnalysis && lastAnalysisTimestamp) {
+      console.log('✅ Using cached ATS analysis');
+      setAtsData(atsAnalysis);
+      setShowATSModal(true);
+      return;
+    }
   
     setAtsLoading(true);
   
@@ -324,11 +340,18 @@ export default function ResumeOptimizationPage() {
         improvement_suggestions: [],
         ats_tips: analysis.optimization_priority,
         experience_gaps: [],
+        diagnostic: analysis.diagnostic || null,
       };
   
+      const timestamp = Date.now();
       setAtsData(mapped);
-      // Save ATS score to store for optimization check
-      useResumeStoreV2.setState({ currentAtsScore: analysis.ats_score });
+      setAnalysisTimestamp(timestamp);
+      // Save ATS score and analysis to store for optimization check and caching
+      useResumeStoreV2.setState({ 
+        currentAtsScore: analysis.ats_score,
+        atsAnalysis: mapped,
+        lastAnalysisTimestamp: timestamp
+      });
       setShowATSModal(true);
     } catch (err: unknown) {
       let errorMessage = 'Failed to check ATS score';
@@ -358,6 +381,82 @@ export default function ResumeOptimizationPage() {
       });
     } finally {
       setAtsLoading(false);
+    }
+  };
+
+  const handleOptimizeResume = async () => {
+    if (!latexCode || !jobDescription) {
+      toast.error('Please generate resume and provide job description');
+      return;
+    }
+
+    if (isOptimizing) return;
+
+    setIsOptimizing(true);
+    setShowATSModal(false);
+    setShowOptimizeResults(false);
+
+    try {
+      const { extractedContentJson } = useResumeStoreV2.getState();
+
+      if (!extractedContentJson) {
+        toast.error('Resume data not loaded. Please refresh the page.');
+        setIsOptimizing(false);
+        return;
+      }
+
+      console.log('🚀 Starting resume optimization...');
+      const result = await resumeV2Api.optimize(jobDescription, extractedContentJson);
+
+      // Track optimization history
+      const previousScore = atsData?.score || 0;
+      const newHistory = [...optimizationHistory, previousScore];
+      setOptimizationHistory(newHistory);
+
+      // Prepare optimize results
+      const optimizeData = {
+        previousScore,
+        newScore: result.final_ats_score,
+        iterations: result.iterations,
+        totalIterations: newHistory.length,
+        sectionsOptimized: result.optimization_history?.[result.iterations - 1]?.sections_optimized || [],
+        plateauDetected: result.plateau_detected || false,
+      };
+
+      setOptimizeResults(optimizeData);
+      setShowOptimizeResults(true);
+
+      // Update the optimized LaTeX
+      setLatexCode(result.final_latex);
+      useResumeStoreV2.setState({
+        finalLatex: result.final_latex,
+      });
+
+      // Clear analysis cache since resume content has changed
+      useResumeStoreV2.setState({
+        atsAnalysis: null,
+        lastAnalysisTimestamp: null,
+      });
+
+      toast.success(`Resume optimized! Score improved to ${result.final_ats_score}`);
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to optimize resume';
+
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const axiosError = err as { response?: { data?: Record<string, unknown> } };
+        const data = axiosError.response?.data;
+
+        if (data && typeof data === 'object') {
+          errorMessage = (data.message as string) || errorMessage;
+        }
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+
+      toast.error(errorMessage);
+      setShowOptimizeResults(false);
+    } finally {
+      setIsOptimizing(false);
     }
   };
 
@@ -423,6 +522,16 @@ export default function ResumeOptimizationPage() {
           onLatexChange={setLatexCode}
           onGeneratePDF={handleGeneratePDF}
           onCheckATS={handleCheckATSScore}
+          onOptimizeStart={(callback) => {
+            optimizeCallbackRef.current = async () => {
+              setIsOptimizing(true);
+              try {
+                await callback();
+              } finally {
+                setIsOptimizing(false);
+              }
+            };
+          }}
           isGeneratingPDF={pdfLoading}
           isCheckingATS={atsLoading}
           activeTab={activeTab}
@@ -437,7 +546,57 @@ export default function ResumeOptimizationPage() {
       )}
 
       {showATSModal && atsData && (
-        <ATSScoreModal isOpen={showATSModal} atsData={atsData as unknown as ATSScoreResponse} onClose={() => setShowATSModal(false)} />
+        <ATSScoreModal 
+          isOpen={showATSModal} 
+          atsData={atsData as unknown as ATSScoreResponse} 
+          diagnostic={atsData.diagnostic || null}
+          analysisTimestamp={analysisTimestamp}
+          onClose={() => setShowATSModal(false)}
+          onOptimize={handleOptimizeResume}
+          onRefreshAnalysis={() => handleCheckATSScore(true)}
+          isOptimizing={isOptimizing}
+        />
+      )}
+
+      {showOptimizeResults && optimizeResults && (
+        <OptimizeResultsModal
+          isOpen={showOptimizeResults}
+          onClose={() => setShowOptimizeResults(false)}
+          onOptimizeAgain={handleOptimizeResume}
+          previousScore={optimizeResults.previousScore}
+          newScore={optimizeResults.newScore}
+          iterations={optimizeResults.iterations}
+          totalIterations={optimizeResults.totalIterations}
+          sectionsOptimized={optimizeResults.sectionsOptimized}
+          plateauDetected={optimizeResults.plateauDetected}
+          isOptimizing={isOptimizing}
+        />
+      )}
+
+      {/* Optimization Loading Overlay */}
+      {isOptimizing && !showOptimizeResults && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl p-8 max-w-md w-full mx-4">
+            <div className="flex flex-col items-center">
+              <div className="relative w-16 h-16 mb-6">
+                <div className="absolute inset-0 rounded-full border-4 border-slate-200 dark:border-slate-700"></div>
+                <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-green-600 dark:border-t-green-400 animate-spin"></div>
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+                Optimizing Resume
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 text-center mb-4">
+                Analyzing and improving your resume to match the job description...
+              </p>
+              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                <div className="h-full bg-linear-to-r from-green-600 to-emerald-600 dark:from-green-500 dark:to-emerald-500 animate-pulse"></div>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-4">
+                This may take 30-60 seconds
+              </p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
