@@ -7,6 +7,7 @@ import {
   CheckCircle,
   AlertTriangle,
   Zap,
+  RefreshCw,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -138,6 +139,8 @@ interface ATSScoreModalProps {
   isOptimizing?: boolean;
   lastDelta?: number;
   lastSectionKey?: string;
+  analysisTimestamp?: number | null;
+  onRefreshAnalysis?: () => void;
 }
 
 export const ATSScoreModal = ({
@@ -150,6 +153,8 @@ export const ATSScoreModal = ({
   isOptimizing = false,
   lastDelta,
   lastSectionKey,
+  analysisTimestamp,
+  onRefreshAnalysis,
 }: ATSScoreModalProps) => {
   // const tabArray = ["overview", "breakdown", "suggestions", "analysis"];
   const tabArray = diagnostic ? ["overview", "diagnostic", "analysis"] : ["overview", "analysis"];
@@ -233,17 +238,35 @@ export const ATSScoreModal = ({
     <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-linear-to-r from-indigo-600 to-indigo-700 dark:from-indigo-900 dark:to-indigo-800 px-6 py-4 flex justify-between items-center border-b border-indigo-700 dark:border-indigo-600">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <TrendingUp size={24} />
-            ATS Score Analysis
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-indigo-700 dark:hover:bg-indigo-600 p-1 rounded transition-colors"
-          >
-            <X size={24} />
-          </button>
+        <div className="sticky top-0 bg-linear-to-r from-indigo-600 to-indigo-700 dark:from-indigo-900 dark:to-indigo-800 px-6 py-4 border-b border-indigo-700 dark:border-indigo-600">
+          <div className="flex justify-between items-start mb-2">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <TrendingUp size={24} />
+              ATS Score Analysis
+            </h2>
+            <div className="flex items-center gap-2">
+              {analysisTimestamp && onRefreshAnalysis && (
+                <button
+                  onClick={onRefreshAnalysis}
+                  className="text-white hover:bg-indigo-700 dark:hover:bg-indigo-600 p-2 rounded transition-colors"
+                  title="Refresh analysis"
+                >
+                  <RefreshCw size={20} />
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="text-white hover:bg-indigo-700 dark:hover:bg-indigo-600 p-1 rounded transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+          </div>
+          {analysisTimestamp && (
+            <p className="text-xs text-indigo-100 dark:text-indigo-200">
+              Analyzed at {new Date(analysisTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          )}
         </div>
 
         {isLoading ? (

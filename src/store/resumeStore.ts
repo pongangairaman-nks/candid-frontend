@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { compileLatexTemplate } from '@/utils/latexCompiler';
+import type { ATSScoreResponse } from '@/services/api';
 
 // V1 State (Original)
 export interface ResumeState {
@@ -49,6 +50,43 @@ export interface ATSAnalysisResult {
   }>;
   missing_keywords: string[];
   optimization_priority: string[];
+  diagnostic?: {
+    current_ats_score: number;
+    achievable_score_without_new_experience: number;
+    score_gap: number;
+    critical_gaps: Array<{
+      gap: string;
+      required_in_jd: boolean;
+      present_in_resume: boolean;
+      fixable: boolean;
+      reason: string;
+    }>;
+    optimization_opportunities: Array<{
+      section: string;
+      current_content: string;
+      issue: string;
+      suggestion: string;
+      impact_on_score: number;
+    }>;
+    content_gaps: Array<{
+      gap: string;
+      likely_present: string;
+      not_mentioned: boolean;
+      suggestion: string;
+    }>;
+    honest_assessment: {
+      is_resume_fixable: boolean;
+      reason: string;
+      effort_required: "low" | "medium" | "high";
+      realistic_outcome: string;
+    };
+    recommendations: Array<{
+      priority: "critical" | "high" | "medium" | "low";
+      action: string;
+      expected_score_impact: number;
+      effort: "low" | "medium" | "high";
+    }>;
+  } | null;
 }
 
 export interface OptimizationResult {
@@ -75,9 +113,12 @@ export interface ResumeStateV2 {
   jobDescription: string;
   
   // ATS Analysis
-  atsAnalysis: ATSAnalysisResult | null;
+  atsAnalysis: ATSScoreResponse | null;
   currentAtsScore: number | null;
   isAnalyzing: boolean;
+  
+  // ATS Analysis Cache
+  lastAnalysisTimestamp: number | null;  // Unix timestamp in ms
   
   // Optimization
   optimizationResult: OptimizationResult | null;
@@ -99,6 +140,7 @@ export interface ResumeStateV2 {
   setATSAnalysis: (analysis: ATSAnalysisResult) => void;
   setCurrentAtsScore: (score: number | null) => void;
   setIsAnalyzing: (analyzing: boolean) => void;
+  setLastAnalysisTimestamp: (timestamp: number | null) => void;
   setOptimizationResult: (result: OptimizationResult) => void;
   setIsOptimizing: (optimizing: boolean) => void;
   setFinalLatex: (latex: string) => void;
@@ -106,6 +148,7 @@ export interface ResumeStateV2 {
   setIsLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   compileAndSetLatex: () => void;
+  clearAnalysisCache: () => void;
   resetV2: () => void;
 }
 
@@ -149,6 +192,9 @@ export const useResumeStoreV2 = create<ResumeStateV2>((set) => ({
   currentAtsScore: null,
   isAnalyzing: false,
   
+  // ATS Analysis Cache
+  lastAnalysisTimestamp: null,
+  
   // Optimization
   optimizationResult: null,
   isOptimizing: false,
@@ -169,6 +215,7 @@ export const useResumeStoreV2 = create<ResumeStateV2>((set) => ({
   setATSAnalysis: (analysis) => set({ atsAnalysis: analysis }),
   setCurrentAtsScore: (score) => set({ currentAtsScore: score }),
   setIsAnalyzing: (analyzing) => set({ isAnalyzing: analyzing }),
+  setLastAnalysisTimestamp: (timestamp) => set({ lastAnalysisTimestamp: timestamp }),
   setOptimizationResult: (result) => set({ optimizationResult: result }),
   setIsOptimizing: (optimizing) => set({ isOptimizing: optimizing }),
   setFinalLatex: (latex) => set({ finalLatex: latex }),
@@ -180,16 +227,19 @@ export const useResumeStoreV2 = create<ResumeStateV2>((set) => ({
       return { error: 'Template or extracted content missing' };
     }
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const compiledLatex = compileLatexTemplate(
         state.createdLatexTemplate,
-        state.extractedContentJson as any
+        state.extractedContentJson as Record<string, unknown>
       );
       return { finalLatex: compiledLatex, error: null };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to compile LaTeX';
       return { error: errorMessage };
     }
+  }),
+  clearAnalysisCache: () => set({
+    atsAnalysis: null,
+    lastAnalysisTimestamp: null,
   }),
   resetV2: () => set({
     wholeMasterTemplate: '',
@@ -199,6 +249,7 @@ export const useResumeStoreV2 = create<ResumeStateV2>((set) => ({
     atsAnalysis: null,
     currentAtsScore: null,
     isAnalyzing: false,
+    lastAnalysisTimestamp: null,
     optimizationResult: null,
     isOptimizing: false,
     finalLatex: '',

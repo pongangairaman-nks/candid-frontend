@@ -688,6 +688,26 @@ export const resumeV2Api = {
       throw new Error(errorMessage);
     }
   },
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  optimize: async (jobDescription: string, extractedContentJson: any, targetScore: number = 90): Promise<any> => {
+    try {
+      const response = await apiClient.post<{ status: string; data: any }>(
+        '/v2/resume/optimize-to-target',
+        { jobDescription, extractedContentJson, targetScore }
+      );
+
+      if (response.data?.status !== 'success') {
+        throw new Error('Failed to optimize resume');
+      }
+
+      return response.data.data;
+    } catch (error) {
+      const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
+      const errorMessage = axiosError?.response?.data?.message || axiosError?.message || 'Failed to optimize resume';
+      throw new Error(errorMessage);
+    }
+  },
 };
 
 export const realResumeApi = {
